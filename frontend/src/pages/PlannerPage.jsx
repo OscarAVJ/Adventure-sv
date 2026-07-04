@@ -1,4 +1,5 @@
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import { LoadingSteps } from "../components/planner/LoadingSteps";
 import { TripForm } from "../components/planner/TripForm";
 import { ItineraryResult } from "../components/itinerary/ItineraryResult";
@@ -12,11 +13,20 @@ export function PlannerPage() {
     <main className="min-h-screen bg-slate-50">
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div>
-            <p className="text-sm font-medium text-brand-700">Adventure-sv</p>
-            <h1 className="text-xl font-semibold text-slate-950">
-              Planificador turistico inteligente
-            </h1>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+              aria-label="Volver a landing"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div>
+              <p className="text-sm font-medium text-brand-700">Adventure-sv</p>
+              <h1 className="text-xl font-semibold text-slate-950">
+                Planificador turistico inteligente
+              </h1>
+            </div>
           </div>
           <span className="hidden rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700 sm:inline-flex">
             MERN + Google Places
