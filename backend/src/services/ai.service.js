@@ -31,6 +31,43 @@ export async function enrichTripContextWithAi(userContext) {
   }
 }
 
+export async function parseWhatsappTripRequestWithAi({ message, currentDate }) {
+  if (!isAiEnabled() || !message) return {};
+
+  try {
+    const result = await requestAiJson({
+      system: [
+        "Eres un extractor de datos para un planificador turistico de El Salvador.",
+        "Devuelve solo JSON valido.",
+        "No inventes datos. Si el usuario no menciona un valor, devuelve null o arreglo vacio.",
+        "Convierte fechas relativas usando currentDate como referencia.",
+        "No asumas zona, presupuesto, cantidad de dias, fecha ni viajeros.",
+      ].join(" "),
+      user: JSON.stringify({
+        task: "Extrae campos estructurados desde este mensaje de WhatsApp.",
+        currentDate,
+        allowedInterests: ALLOWED_INTERESTS,
+        allowedOccasions: ALLOWED_OCCASIONS,
+        expectedSchema: {
+          budgetUsd: "number | null",
+          days: "number entre 1 y 10 | null",
+          startDate: "YYYY-MM-DD | null",
+          travelers: "number | null",
+          preferredZone: "string mencionado explicitamente | null",
+          interests: ["cultura"],
+          occasion: "friends | null",
+        },
+        message,
+      }),
+    });
+
+    return sanitizeParsedTripRequest(result);
+  } catch (error) {
+    console.warn("AI WhatsApp parsing unavailable", error.message);
+    return {};
+  }
+}
+
 export async function buildItinerarySummary({ userContext, season, occasionRule, days = [] }) {
   if (isAiEnabled()) {
     try {
@@ -283,6 +320,38 @@ function mergeAiContext(userContext, aiContext) {
 function sanitizeInterests(value) {
   if (!Array.isArray(value)) return [];
   return value.map(normalizeText).filter((interest) => ALLOWED_INTERESTS.includes(interest));
+}
+
+function sanitizeParsedTripRequest(value) {
+  if (!value || typeof value !== "object") return {};
+
+  return {
+    budgetUsd: sanitizePositiveNumber(value.budgetUsd),
+    days: sanitizeIntegerInRange(value.days, 1, 10),
+    startDate: sanitizeIsoDate(value.startDate),
+    travelers: sanitizeIntegerInRange(value.travelers, 1, 50),
+    preferredZone: sanitizeText(value.preferredZone) || null,
+    interests: sanitizeInterests(value.interests),
+    occasion: ALLOWED_OCCASIONS.includes(value.occasion) ? value.occasion : null,
+  };
+}
+
+function sanitizePositiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function sanitizeIntegerInRange(value, min, max) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) return null;
+  return number;
+}
+
+function sanitizeIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10) === value ? value : null;
 }
 
 function sanitizeSearchQueries(value, userContext) {
