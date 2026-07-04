@@ -5,13 +5,13 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          500: "#2563eb",
-          600: "#1d4ed8",
-          700: "#1e40af",
-          900: "#172554",
+          50: "#fff8e1", // Naranja claro/crema
+          100: "#ffecb3", // Naranja pálido
+          200: "#ffe082", // Naranja medio-claro
+          500: "#ff9800", // Naranja vibrante
+          600: "#f57c00", // Naranja más profundo
+          700: "#ef6c00", // Naranja más oscuro/marrón
+          900: "#e65100", // Naranja muy oscuro
         },
       },
       boxShadow: {
