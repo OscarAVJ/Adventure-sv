@@ -89,3 +89,31 @@ select {
     0 3px 10px rgba(37, 99, 235, 0.35),
     0 0 0 4px #dbeafe;
 }
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  font: inherit;
+}
+
+.map-marker {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #f57c00;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
+}
+
+.map-marker-featured {
+  background: #e65100;
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.25),
+    0 0 0 5px rgba(255, 236, 179, 0.9);
+}
