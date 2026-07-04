@@ -87,7 +87,11 @@ async function buildDays({ userContext, selectedPlaces, season, occasionRule }) 
       day: dayNumber,
       date,
       zone: userContext.preferredZone || dayPlaces[0]?.zone || "El Salvador",
-      weatherSummary: await getWeatherSummary({ date, zone: userContext.preferredZone }),
+      weatherSummary: await getWeatherSummary({
+        date,
+        zone: userContext.preferredZone || dayPlaces[0]?.zone,
+        coordinates: dayPlaces[0]?.coordinates,
+      }),
       costUsd: activities.reduce((sum, activity) => sum + activity.costUsd, 0),
       activities,
     });

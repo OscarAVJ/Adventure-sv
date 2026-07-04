@@ -40,4 +40,4 @@ AI_API_KEY=
 FRONTEND_URL=http://localhost:5173
 ```
 
-Si no hay `GOOGLE_MAPS_API_KEY`, la API usa candidatos fallback para mantener el contrato del MVP.
+El clima usa Open-Meteo, asi que no requiere API key. Si no hay `GOOGLE_MAPS_API_KEY`, la API usa candidatos fallback para mantener el contrato del MVP.
