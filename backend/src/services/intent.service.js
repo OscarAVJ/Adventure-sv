@@ -36,12 +36,12 @@ export function normalizeTripInput(input) {
   const extractedInterests = extractInterests(message);
   const interests = uniqueValues([...(input.interests || []), ...extractedInterests]).map(normalizeText);
   const occasion = input.occasion || extractOccasion(message);
-  const preferredZone = input.preferredZone || extractZone(message) || inferZoneFromInterests(interests);
+  const preferredZone = input.preferredZone || extractZone(message) || null;
 
   return {
     channel: input.channel,
     message,
-    interests: interests.length > 0 ? interests : ["naturaleza"],
+    interests,
     budgetUsd: Number(input.budgetUsd),
     days: Number(input.days),
     startDate: input.startDate,
@@ -68,13 +68,6 @@ export function extractOccasion(message) {
 function extractZone(message) {
   const normalized = normalizeText(message);
   return ZONE_KEYWORDS.find((zone) => normalized.includes(normalizeText(zone))) || null;
-}
-
-function inferZoneFromInterests(interests) {
-  if (interests.includes("playa") || interests.includes("surf")) return "El Tunco";
-  if (interests.includes("cultura")) return "Suchitoto";
-  if (interests.includes("naturaleza")) return "Lago de Coatepeque";
-  return "San Salvador";
 }
 
 function uniqueValues(values) {

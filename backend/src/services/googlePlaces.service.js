@@ -1,142 +1,121 @@
 import { env } from "../config/env.js";
-import { normalizeText } from "./intent.service.js";
-
-const FALLBACK_PLACES = [
-  {
-    name: "Playa El Tunco",
-    type: "playa",
-    categories: ["playa", "surf"],
-    zone: "El Tunco",
-    googlePlaceId: "fallback-playa-el-tunco",
-    rating: 4.6,
-    coordinates: { lat: 13.4938, lng: -89.3838 },
-    openNow: true,
-  },
-  {
-    name: "Clase de surf en El Tunco",
-    type: "surf",
-    categories: ["surf", "playa", "tour"],
-    zone: "El Tunco",
-    googlePlaceId: "fallback-surf-el-tunco",
-    rating: 4.7,
-    coordinates: { lat: 13.4932, lng: -89.3842 },
-    openNow: true,
-  },
-  {
-    name: "Restaurante de comida local en La Libertad",
-    type: "comida",
-    categories: ["comida", "familia"],
-    zone: "La Libertad",
-    googlePlaceId: "fallback-comida-la-libertad",
-    rating: 4.4,
-    coordinates: { lat: 13.487, lng: -89.322 },
-    openNow: true,
-  },
-  {
-    name: "Cena al atardecer en El Tunco",
-    type: "romantico",
-    categories: ["romantico", "comida", "playa"],
-    zone: "El Tunco",
-    googlePlaceId: "fallback-cena-atardecer-tunco",
-    rating: 4.5,
-    coordinates: { lat: 13.494, lng: -89.383 },
-    openNow: true,
-  },
-  {
-    name: "Centro historico de Suchitoto",
-    type: "cultura",
-    categories: ["cultura", "tour"],
-    zone: "Suchitoto",
-    googlePlaceId: "fallback-suchitoto-centro",
-    rating: 4.6,
-    coordinates: { lat: 13.9381, lng: -89.0278 },
-    openNow: true,
-  },
-  {
-    name: "Lago de Coatepeque",
-    type: "naturaleza",
-    categories: ["naturaleza", "familia", "comida"],
-    zone: "Lago de Coatepeque",
-    googlePlaceId: "fallback-lago-coatepeque",
-    rating: 4.7,
-    coordinates: { lat: 13.8642, lng: -89.545 },
-    openNow: true,
-  },
-  {
-    name: "Ruta de Las Flores",
-    type: "tour",
-    categories: ["tour", "naturaleza", "cultura", "comida"],
-    zone: "Ruta de Las Flores",
-    googlePlaceId: "fallback-ruta-flores",
-    rating: 4.8,
-    coordinates: { lat: 13.8691, lng: -89.8492 },
-    openNow: true,
-  },
-  {
-    name: "Hospedaje boutique en El Tunco",
-    type: "hospedaje",
-    categories: ["hospedaje", "romantico", "playa"],
-    zone: "El Tunco",
-    googlePlaceId: "fallback-hospedaje-tunco",
-    rating: 4.3,
-    coordinates: { lat: 13.4928, lng: -89.3831 },
-    openNow: true,
-  },
-];
+import { AppError } from "../utils/AppError.js";
 
 export async function searchCandidatePlaces(userContext) {
   if (!env.googleMapsApiKey) {
-    return searchFallbackPlaces(userContext);
+    throw new AppError("Google Places no esta configurado.", 503, ["Configura GOOGLE_MAPS_API_KEY para obtener lugares reales."]);
   }
 
-  const query = buildPlacesQuery(userContext);
-  const url = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
-  url.searchParams.set("query", query);
-  url.searchParams.set("key", env.googleMapsApiKey);
-  url.searchParams.set("language", "es");
+  const queries = buildPlacesQueries(userContext);
+  const places = [];
 
-  const response = await fetch(url);
+  for (const query of queries) {
+    const results = await fetchGooglePlaces(query, userContext);
+    places.push(...results);
+  }
+
+  const uniquePlaces = dedupePlaces(places);
+  return uniquePlaces;
+}
+
+async function fetchGooglePlaces(query, userContext) {
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": env.googleMapsApiKey,
+      "X-Goog-FieldMask": [
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.location",
+        "places.rating",
+        "places.types",
+        "places.currentOpeningHours.openNow",
+      ].join(","),
+    },
+    body: JSON.stringify({
+      textQuery: query,
+      languageCode: "es",
+      regionCode: "SV",
+      maxResultCount: 10,
+    }),
+  });
+
   if (!response.ok) {
-    return searchFallbackPlaces(userContext);
+    const errorBody = await safeReadJson(response);
+    throw new AppError("Google Places no pudo devolver recomendaciones.", 502, [
+      `Google Places HTTP status: ${response.status}`,
+      errorBody?.error?.message || "Sin detalle adicional de Google Places.",
+    ]);
   }
 
   const data = await response.json();
-  const places = (data.results || []).map((place) => mapGooglePlace(place, userContext));
-  return places.length > 0 ? places : searchFallbackPlaces(userContext);
+  return (data.places || []).map((place) => mapGooglePlace(place, userContext));
 }
 
-function searchFallbackPlaces(userContext) {
-  const zone = normalizeText(userContext.preferredZone);
-  const matching = FALLBACK_PLACES.filter((place) => {
-    const hasInterest = place.categories.some((category) => userContext.interests.includes(category));
-    const sameZone = !zone || normalizeText(place.zone) === zone;
-    return hasInterest || sameZone;
-  });
-
-  return matching.length > 0 ? matching : FALLBACK_PLACES;
-}
-
-function buildPlacesQuery(userContext) {
-  const interests = userContext.interests.join(" ");
+function buildPlacesQueries(userContext) {
   const zone = userContext.preferredZone || "El Salvador";
-  return `${interests} turismo ${zone} El Salvador`;
+  const message = String(userContext.message || "").trim();
+  const interests = Array.isArray(userContext.interests) ? userContext.interests : [];
+  const aiQueries = Array.isArray(userContext.aiSearchQueries) ? userContext.aiSearchQueries : [];
+
+  const queryCandidates = [
+    ...aiQueries,
+    message ? `${message} ${zone}` : null,
+    interests.length > 0 ? `${interests.join(" ")} lugares turisticos ${zone}` : null,
+    interests.length > 0 ? `${interests.join(" ")} atracciones turisticas ${zone}` : null,
+    ...interests.map((interest) => `${interest} lugares turisticos ${zone}`),
+    `centros turisticos ${zone}`,
+  ];
+
+  return [...new Set(queryCandidates.map(normalizeQuery).filter(Boolean))]
+    .map((query) => (query.toLowerCase().includes("el salvador") ? query : `${query} El Salvador`))
+    .slice(0, 10);
+}
+
+function dedupePlaces(places) {
+  const seen = new Set();
+  return places
+    .filter((place) => {
+      if (!place.googlePlaceId || seen.has(place.googlePlaceId)) return false;
+      seen.add(place.googlePlaceId);
+      return hasValidCoordinates(place.coordinates);
+    })
+    .slice(0, 30);
 }
 
 function mapGooglePlace(place, userContext) {
   const inferredType = userContext.interests[0] || "tour";
   return {
-    name: place.name,
+    name: place.displayName?.text || "Lugar turistico",
     type: inferredType,
     categories: inferCategoriesFromGooglePlace(place, userContext),
-    zone: userContext.preferredZone || place.formatted_address || "El Salvador",
-    googlePlaceId: place.place_id,
+    zone: userContext.preferredZone || place.formattedAddress || "El Salvador",
+    googlePlaceId: place.id,
     rating: place.rating || 0,
     coordinates: {
-      lat: place.geometry?.location?.lat,
-      lng: place.geometry?.location?.lng,
+      lat: place.location?.latitude,
+      lng: place.location?.longitude,
     },
-    openNow: place.opening_hours?.open_now,
+    openNow: place.currentOpeningHours?.openNow,
   };
+}
+
+function hasValidCoordinates(coordinates) {
+  return Number.isFinite(Number(coordinates?.lat)) && Number.isFinite(Number(coordinates?.lng));
+}
+
+function normalizeQuery(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+async function safeReadJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function inferCategoriesFromGooglePlace(place, userContext) {

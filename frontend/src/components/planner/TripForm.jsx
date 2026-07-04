@@ -8,16 +8,14 @@ import { OccasionSelect } from "./OccasionSelect";
 const today = new Date().toISOString().slice(0, 10);
 
 export function TripForm({ onSubmit, isLoading }) {
-  const [message, setMessage] = useState(
-    "Quiero celebrar mi aniversario en diciembre, 2 dias, presupuesto $250, playa y comida local"
-  );
-  const [interests, setInterests] = useState(["playa", "comida", "romantico"]);
-  const [budgetUsd, setBudgetUsd] = useState(250);
-  const [days, setDays] = useState(2);
-  const [startDate, setStartDate] = useState(today);
-  const [preferredZone, setPreferredZone] = useState("El Tunco");
-  const [occasion, setOccasion] = useState("anniversary");
-  const [travelers, setTravelers] = useState(2);
+  const [message, setMessage] = useState("");
+  const [interests, setInterests] = useState([]);
+  const [budgetUsd, setBudgetUsd] = useState("");
+  const [days, setDays] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [preferredZone, setPreferredZone] = useState("");
+  const [occasion, setOccasion] = useState("");
+  const [travelers, setTravelers] = useState("");
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -71,6 +69,8 @@ export function TripForm({ onSubmit, isLoading }) {
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
+            min={today}
+            required
             className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
           />
         </label>
@@ -83,6 +83,7 @@ export function TripForm({ onSubmit, isLoading }) {
             max="10"
             value={days}
             onChange={(event) => setDays(event.target.value)}
+            required
             className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
           />
         </label>
@@ -116,6 +117,7 @@ export function TripForm({ onSubmit, isLoading }) {
             max="20"
             value={travelers}
             onChange={(event) => setTravelers(event.target.value)}
+            required
             className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
           />
         </label>

@@ -36,8 +36,21 @@ PORT=4000
 MONGODB_URI=mongodb://localhost:27017/adventure-sv
 GOOGLE_MAPS_API_KEY=
 WEATHER_API_KEY=
+AI_PROVIDER=gemini
 AI_API_KEY=
+AI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5173
 ```
 
 El clima usa Open-Meteo, asi que no requiere API key. Si no hay `GOOGLE_MAPS_API_KEY`, la API usa candidatos fallback para mantener el contrato del MVP.
+
+Si `AI_PROVIDER=gemini` y `AI_API_KEY` esta configurado, el backend usa `AI_MODEL=gemini-2.5-flash` para:
+
+- enriquecer la intencion del usuario
+- generar consultas de Google Places mas precisas para El Salvador
+- seleccionar y ordenar el itinerario final usando solo candidatos verificados
+- redactar un resumen mas natural
+
+La IA no puede inventar lugares: recibe una lista de candidatos con `googlePlaceId` y el backend descarta cualquier seleccion que no exista en esa lista. Si la IA falla, el flujo vuelve a reglas locales sin romper el endpoint.
+
+Tambien se mantiene soporte para `AI_PROVIDER=openai` si el equipo decide volver a OpenAI.

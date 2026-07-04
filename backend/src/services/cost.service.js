@@ -8,6 +8,7 @@ const BASE_COSTS = {
   tour: 35,
   romantico: 45,
   familia: 20,
+  aventura: 35,
 };
 
 export function estimateActivityCost(place, travelers) {
