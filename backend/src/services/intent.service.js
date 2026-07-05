@@ -68,8 +68,12 @@ export function normalizeTripInput(input) {
     travelers: Number(input.travelers || 1),
     conversationId: input.conversationId || null,
     phone: input.phone || null,
-    lang: input.lang || "es",
+    lang: normalizeLanguage(input.lang),
   };
+}
+
+function normalizeLanguage(lang) {
+  return lang === "en" ? "en" : "es";
 }
 
 export function extractInterests(message) {

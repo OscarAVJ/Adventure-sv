@@ -1,7 +1,9 @@
 import { WalletCards } from "lucide-react";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { useI18n } from "../../i18n/useI18n";
 
 export function BudgetSummary({ budgetUsd, estimatedCostUsd }) {
+  const { t } = useI18n();
   const percentage = Math.min(
     100,
     Math.round(((estimatedCostUsd || 0) / (budgetUsd || 1)) * 100)
@@ -15,9 +17,9 @@ export function BudgetSummary({ budgetUsd, estimatedCostUsd }) {
             <WalletCards className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm text-slate-500">Presupuesto usado</p>
+            <p className="text-sm text-slate-500">{t.itinerary.usedBudget}</p>
             <p className="font-semibold text-slate-950">
-              {formatCurrency(estimatedCostUsd)} de {formatCurrency(budgetUsd)}
+              {formatCurrency(estimatedCostUsd)} {t.itinerary.of} {formatCurrency(budgetUsd)}
             </p>
           </div>
         </div>

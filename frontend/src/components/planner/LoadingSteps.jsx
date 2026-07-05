@@ -1,15 +1,10 @@
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-
-const steps = [
-  "Entendiendo tus intereses...",
-  "Buscando lugares reales en Google Maps...",
-  "Revisando temporada y ocasión del viaje...",
-  "Aplicando prioridades relevantes...",
-  "Ajustando actividades a tu presupuesto...",
-];
+import { useI18n } from "../../i18n/useI18n";
 
 export function LoadingSteps() {
+  const { t } = useI18n();
+  const steps = t.loading;
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
@@ -18,7 +13,7 @@ export function LoadingSteps() {
     }, 1300);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [steps.length]);
 
   return (
     <div className="rounded-lg border border-brand-100 bg-white p-5 shadow-soft">

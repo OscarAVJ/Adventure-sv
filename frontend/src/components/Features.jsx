@@ -1,5 +1,6 @@
 import { MapPinned, MessageCircle, Sparkles, Star } from "lucide-react";
-import { display, features } from "../services/Data.js";
+import { useI18n } from "../i18n/useI18n";
+import { display, getLandingContent } from "../services/Data.js";
 
 const ICONS = {
   sparkles: Sparkles,
@@ -30,17 +31,20 @@ function FeatureCard({ iconKey, title, text, accent }) {
 }
 
 export function Features() {
+  const { language, t } = useI18n();
+  const { features } = getLandingContent(language);
+
   return (
     <section className="bg-white py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <p className="text-sm font-semibold text-brand-700">
-          Por qué Adventure-sv
+          {t.features.eyebrow}
         </p>
         <h2
           className="mt-3 max-w-xl text-3xl font-bold text-slate-950"
           style={display}
         >
-          Cada recomendación tiene una razón detrás.
+          {t.features.title}
         </h2>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">

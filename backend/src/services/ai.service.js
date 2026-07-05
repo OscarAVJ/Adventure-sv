@@ -84,7 +84,7 @@ export async function buildItinerarySummary({ userContext, season, occasionRule,
     }
   }
 
-  const interestText = userContext.interests.join(", ");
+  const interestText = userContext.interests.map((interest) => translateInterestLabel(interest, userContext.lang)).join(", ");
   const occasionText = occasionRule ? ` para ${occasionRule.label.toLowerCase()}` : "";
   const seasonText = season ? ` en temporada de ${season.label.toLowerCase()}` : "";
   if (userContext.lang === "en") {
@@ -245,8 +245,31 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
 
 function getLanguageInstruction(lang = "es") {
   return lang === "en"
-    ? "Write all user-facing text in English."
-    : "Escribe todo texto visible para el usuario en espanol claro.";
+    ? "Write all user-facing text in English, including summary, reasons, notes, adjustments, and any JSON string shown to the traveler."
+    : "Escribe todo texto visible para el usuario en espanol claro, incluyendo resumen, razones, notas, ajustes y cualquier string JSON mostrado al viajero.";
+}
+
+function translateInterestLabel(interest, lang = "es") {
+  if (lang !== "en") return interest;
+  const labels = {
+    playa: "beach",
+    surf: "surf",
+    cultura: "culture",
+    naturaleza: "nature",
+    hospedaje: "lodging",
+    comida: "food",
+    vida_nocturna: "nightlife",
+    bebidas: "drinks",
+    musica: "music",
+    tour: "tours",
+    romantico: "romantic experiences",
+    familia: "family activities",
+    aventura: "adventure",
+    compras: "shopping",
+    bienestar: "wellness",
+  };
+
+  return labels[interest] || interest;
 }
 
 function isPreferredPlace(place, userContext) {

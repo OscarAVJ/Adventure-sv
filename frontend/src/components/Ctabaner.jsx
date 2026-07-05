@@ -1,8 +1,11 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useI18n } from "../i18n/useI18n";
 import { display } from "../services/Data.js";
 
 export function CtaBanner() {
+  const { t } = useI18n();
+
   return (
     <section className="bg-white px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
       <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl bg-slate-950 px-6 py-16 text-center sm:px-12 lg:py-20">
@@ -11,7 +14,7 @@ export function CtaBanner() {
           style={display}
           aria-hidden="true"
         >
-          Descubre El Salvador
+          {t.cta.background}
         </span>
 
         <div className="relative">
@@ -19,11 +22,10 @@ export function CtaBanner() {
             className="mx-auto max-w-xl text-3xl font-bold text-white sm:text-4xl"
             style={display}
           >
-            ¿Listo para la aventura?
+            {t.cta.title}
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-white/70 sm:text-base">
-            Únete a miles de viajeros que ya están descubriendo la magia de
-            El Salvador con planes inteligentes y personalizados.
+            {t.cta.description}
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -31,14 +33,14 @@ export function CtaBanner() {
               to="/planner"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1C7C74] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#15625c]"
             >
-              Genera tu itinerario gratis
+              {t.cta.primary}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="#como-funciona"
               className="inline-flex items-center justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Hablar con un experto
+              {t.cta.secondary}
             </a>
           </div>
         </div>

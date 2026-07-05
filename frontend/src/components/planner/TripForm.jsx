@@ -1,6 +1,7 @@
 import { CalendarDays, MapPin, MessageSquareText, Users } from "lucide-react";
 import { useState } from "react";
 import { zoneOptions } from "../../constants/plannerOptions";
+import { useI18n } from "../../i18n/useI18n";
 import { BudgetInput } from "./BudgetInput";
 import { InterestChips } from "./InterestChips";
 import { OccasionSelect } from "./OccasionSelect";
@@ -8,6 +9,7 @@ import { OccasionSelect } from "./OccasionSelect";
 const today = new Date().toISOString().slice(0, 10);
 
 export function TripForm({ onSubmit, isLoading }) {
+  const { language, t } = useI18n();
   const [message, setMessage] = useState("");
   const [interests, setInterests] = useState([]);
   const [budgetUsd, setBudgetUsd] = useState("");
@@ -32,6 +34,7 @@ export function TripForm({ onSubmit, isLoading }) {
       travelers: Number(travelers),
       conversationId: null,
       phone: null,
+      lang: language,
     });
   }
 
@@ -40,7 +43,7 @@ export function TripForm({ onSubmit, isLoading }) {
       <div className="space-y-2">
         <label htmlFor="message" className="flex items-center gap-2 text-sm font-medium text-slate-700">
           <MessageSquareText className="h-4 w-4 text-brand-600" />
-          Describe tu viaje
+          {t.form.describe}
         </label>
         <textarea
           id="message"
@@ -48,12 +51,12 @@ export function TripForm({ onSubmit, isLoading }) {
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
-          placeholder="Ej. Quiero playa, comida local, presupuesto $250, voy por aniversario..."
+          placeholder={t.form.placeholder}
         />
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-medium text-slate-700">Intereses</p>
+        <p className="text-sm font-medium text-slate-700">{t.form.interests}</p>
         <InterestChips selected={interests} onChange={setInterests} />
       </div>
 
@@ -63,7 +66,7 @@ export function TripForm({ onSubmit, isLoading }) {
         <label className="space-y-2">
           <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <CalendarDays className="h-4 w-4 text-brand-600" />
-            Fecha de inicio
+            {t.form.startDate}
           </span>
           <input
             type="date"
@@ -76,7 +79,7 @@ export function TripForm({ onSubmit, isLoading }) {
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700">Días</span>
+          <span className="text-sm font-medium text-slate-700">{t.form.days}</span>
           <input
             type="number"
             min="1"
@@ -91,7 +94,7 @@ export function TripForm({ onSubmit, isLoading }) {
         <label className="space-y-2">
           <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <MapPin className="h-4 w-4 text-brand-600" />
-            Zona preferida
+            {t.form.preferredZone}
           </span>
           <select
             value={preferredZone}
@@ -100,7 +103,7 @@ export function TripForm({ onSubmit, isLoading }) {
           >
             {zoneOptions.map((zone) => (
               <option key={zone || "empty"} value={zone}>
-                {zone || "Sin preferencia"}
+                {zone || t.form.noPreference}
               </option>
             ))}
           </select>
@@ -109,7 +112,7 @@ export function TripForm({ onSubmit, isLoading }) {
         <label className="space-y-2">
           <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <Users className="h-4 w-4 text-brand-600" />
-            Viajeros
+            {t.form.travelers}
           </span>
           <input
             type="number"
@@ -130,7 +133,7 @@ export function TripForm({ onSubmit, isLoading }) {
         disabled={isLoading}
         className="h-12 w-full rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
-        {isLoading ? "Generando itinerario..." : "Generar itinerario"}
+        {isLoading ? t.form.loading : t.form.submit}
       </button>
     </form>
   );

@@ -1,5 +1,6 @@
 import { Gift, SlidersHorizontal, Sparkles } from "lucide-react";
-import { display, mono, steps } from "../services/Data.js";
+import { useI18n } from "../i18n/useI18n";
+import { display, getLandingContent, mono } from "../services/Data.js";
 
 const ICONS = {
   sliders: SlidersHorizontal,
@@ -29,11 +30,14 @@ function StepCard({ iconKey, title, text, index }) {
 }
 
 export function Steps() {
+  const { language, t } = useI18n();
+  const { steps } = getLandingContent(language);
+
   return (
     <section id="como-funciona" className="bg-slate-50 py-20 lg:py-24">
       <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-slate-950" style={display}>
-          Tu plan perfecto en 3 pasos.
+          {t.steps.title}
         </h2>
 
         <div className="mt-14 grid gap-10 md:grid-cols-3">

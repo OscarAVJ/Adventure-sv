@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { createItinerary, getItineraryStatus, rerollActivity } from "../services/itineraryApi";
+import { useI18n } from "../i18n/useI18n";
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 80;
 
 export function useItinerary() {
+  const { t } = useI18n();
   const [itinerary, setItinerary] = useState(null);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
@@ -16,13 +18,13 @@ export function useItinerary() {
       setStatus("loading");
       setError(null);
 
-      const result = await createItinerary(payload);
+      const result = await createItinerary(payload, t.errors);
       const itineraryResult = result?.status === "processing" ? await pollItinerary(result.itineraryId) : result;
 
       setItinerary(itineraryResult);
       setStatus("success");
     } catch (err) {
-      setError(err.message || "No se pudo generar el itinerario.");
+      setError(err.message || t.errors.generation);
       setStatus("error");
     }
   }
@@ -30,14 +32,14 @@ export function useItinerary() {
   async function pollItinerary(itineraryId) {
     for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
       await wait(POLL_INTERVAL_MS);
-      const statusResponse = await getItineraryStatus(itineraryId);
+      const statusResponse = await getItineraryStatus(itineraryId, t.errors);
 
       if (statusResponse.status === "ready") {
         return statusResponse.itinerary;
       }
     }
 
-    throw new Error("El itinerario está tardando más de lo esperado. Intenta consultar de nuevo en unos segundos.");
+    throw new Error(t.errors.slow);
   }
 
   async function changeActivity(activityId, reason = "disliked") {
@@ -47,7 +49,7 @@ export function useItinerary() {
       setRerollingActivityId(activityId);
       setRerollError(null);
 
-      const updatedDay = await rerollActivity(itinerary.id, activityId, reason);
+      const updatedDay = await rerollActivity(itinerary.id, activityId, reason, t.errors);
 
       setItinerary((current) => {
         if (!current) return current;
@@ -65,7 +67,7 @@ export function useItinerary() {
     } catch (err) {
       setRerollError({
         activityId,
-        message: err.message || "No se pudo cambiar la actividad.",
+        message: err.message || t.errors.reroll,
       });
     } finally {
       setRerollingActivityId(null);

@@ -1,10 +1,12 @@
 import { ExternalLink, MapPin, RefreshCw } from "lucide-react";
 import { BadgeList } from "./BadgeList";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { useI18n } from "../../i18n/useI18n";
 
 export function ActivityCard({ activity, isRerolling = false, rerollError = null, onReroll }) {
+  const { language, t } = useI18n();
   const displayCost = activity.estimatedTotalCostUsd ?? activity.costUsd;
-  const openStatus = getOpenStatus(activity.openNow);
+  const openStatus = getOpenStatus(activity.openNow, t);
   const todayHours = getTodayHours(activity.openingHours);
 
   return (
@@ -15,7 +17,7 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
           <h3 className="mt-1 text-base font-semibold text-slate-950">
             {activity.name}
           </h3>
-          <p className="text-sm capitalize text-slate-500">{activity.type}</p>
+          <p className="text-sm capitalize text-slate-500">{translateActivityType(activity.type, language)}</p>
         </div>
 
         <p className="shrink-0 text-sm font-semibold text-slate-950">
@@ -35,7 +37,7 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${isRerolling ? "animate-spin" : ""}`} />
-          {isRerolling ? "Buscando opción..." : "Cambiar actividad"}
+          {isRerolling ? t.itinerary.searchingOption : t.itinerary.changeActivity}
         </button>
         {rerollError && <p className="text-sm font-medium text-red-600">{rerollError}</p>}
       </div>
@@ -63,18 +65,18 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
             className="inline-flex items-center gap-2 font-medium text-brand-700 hover:text-brand-800"
           >
             <MapPin className="h-4 w-4" />
-            Abrir ubicación en Google Maps
+            {t.itinerary.openMaps}
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}
         {activity.address && <p>{activity.address}</p>}
         <p>
-          <span className="font-medium text-slate-950">Estado:</span>{" "}
+          <span className="font-medium text-slate-950">{t.itinerary.status}:</span>{" "}
           {openStatus}
         </p>
         {todayHours && (
           <p>
-            <span className="font-medium text-slate-950">Horario:</span>{" "}
+            <span className="font-medium text-slate-950">{t.itinerary.schedule}:</span>{" "}
             {todayHours}
           </p>
         )}
@@ -83,7 +85,7 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
       {activity.spendingBreakdown?.length > 0 && (
         <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Desglose estimado
+            {t.itinerary.breakdown}
           </p>
           <ul className="mt-2 space-y-1 text-sm text-slate-700">
             {activity.spendingBreakdown.map((item) => (
@@ -104,14 +106,37 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
   );
 }
 
-function getOpenStatus(openNow) {
-  if (openNow === true) return "Abierto ahora";
-  if (openNow === false) return "Cerrado ahora";
-  return "Horario no disponible";
+function getOpenStatus(openNow, t) {
+  if (openNow === true) return t.itinerary.openNow;
+  if (openNow === false) return t.itinerary.closedNow;
+  return t.itinerary.hoursUnavailable;
 }
 
 function getTodayHours(openingHours) {
   if (!Array.isArray(openingHours) || openingHours.length === 0) return "";
   return openingHours[0];
+}
+
+function translateActivityType(type, language) {
+  if (language !== "en") return type;
+  const labels = {
+    playa: "beach",
+    surf: "surf",
+    cultura: "culture",
+    naturaleza: "nature",
+    hospedaje: "lodging",
+    comida: "food",
+    vida_nocturna: "nightlife",
+    bebidas: "drinks",
+    musica: "music",
+    tour: "tour",
+    romantico: "romantic",
+    familia: "family",
+    aventura: "adventure",
+    compras: "shopping",
+    bienestar: "wellness",
+  };
+
+  return labels[type] || type;
 }
 

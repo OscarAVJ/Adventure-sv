@@ -3,8 +3,10 @@ import { AdjustmentsPanel } from "./AdjustmentsPanel";
 import { BudgetSummary } from "./BudgetSummary";
 import { DayTimeline } from "./DayTimeline";
 import { MapView } from "./MapView";
+import { useI18n } from "../../i18n/useI18n";
 
 export function ItineraryResult({ itinerary, onRerollActivity, rerollingActivityId, rerollError }) {
+  const { t } = useI18n();
   if (!itinerary) return null;
 
   return (
@@ -15,7 +17,7 @@ export function ItineraryResult({ itinerary, onRerollActivity, rerollingActivity
             <CalendarCheck2 className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-medium text-brand-700">Itinerario generado</p>
+            <p className="text-sm font-medium text-brand-700">{t.itinerary.generated}</p>
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">
               {itinerary.summary}
             </h1>

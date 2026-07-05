@@ -16,6 +16,29 @@ const BASE_ACTIVITY_COSTS = {
   bienestar: { perPerson: 35, group: 0, label: "Spa o bienestar" },
 };
 
+const COST_LABEL_TRANSLATIONS = {
+  "Acceso o consumo minimo": { en: "Access or minimum spend" },
+  "Clase o alquiler de tabla": { en: "Surf lesson or board rental" },
+  "Entrada cultural": { en: "Cultural entrance fee" },
+  "Entrada o fee natural": { en: "Nature entrance fee" },
+  "Hospedaje economico por noche": { en: "Budget lodging per night" },
+  "Comida por persona": { en: "Food per person" },
+  "Tour o actividad guiada": { en: "Tour or guided activity" },
+  "Cena o experiencia especial": { en: "Dinner or special experience" },
+  "Actividad familiar": { en: "Family activity" },
+  "Actividad de aventura": { en: "Adventure activity" },
+  "Consumo nocturno": { en: "Nightlife spending" },
+  "Bebidas o consumo minimo": { en: "Drinks or minimum spend" },
+  "Entrada o consumo musical": { en: "Music entry or spend" },
+  "Compra sugerida": { en: "Suggested purchase" },
+  "Spa o bienestar": { en: "Spa or wellness" },
+  "Traslado desde aeropuerto": { en: "Airport transfer" },
+  "Transporte local": { en: "Local transport" },
+  "Parqueo, duchas o extras": { en: "Parking, showers, or extras" },
+  "Bebidas o propina": { en: "Drinks or tip" },
+  "Propina o cover adicional": { en: "Tip or extra cover" },
+};
+
 const PREMIUM_ZONE_PATTERN = /\b(san benito|escalon|santa elena|multiplaza|bambu|el tunco|el zonte|surf city|costa del sol)\b/i;
 const BUDGET_PLACE_PATTERN = /\b(parque|mercado|mirador|playa|malecon|centro historico)\b/i;
 
@@ -45,10 +68,10 @@ export function fitActivitiesToBudget(days, budgetUsd, userContext = {}) {
       estimated: true,
     }));
     activity.estimatedTotalCostUsd = sumCosts(activity.spendingBreakdown);
-    activity.badges = [...new Set([...(activity.badges || []), "Ajustado al presupuesto"])];
+    activity.badges = [...new Set([...(activity.badges || []), userContext.lang === "en" ? "Adjusted to budget" : "Ajustado al presupuesto"])];
     activity.notes = activity.notes
-      ? `${activity.notes} Se ajusto el estimado a una opcion mas economica.`
-      : "Se ajusto el estimado a una opcion mas economica.";
+      ? `${activity.notes} ${translateCostText("budgetNote", userContext.lang)}`
+      : translateCostText("budgetNote", userContext.lang);
   }
 
   const fittedDays = refreshDayCosts(
@@ -62,7 +85,7 @@ export function fitActivitiesToBudget(days, budgetUsd, userContext = {}) {
   return {
     days: fittedDays,
     estimatedCostUsd,
-    adjustment: "Se ajustaron costos estimados usando rangos economicos para mantenerse cerca del presupuesto.",
+    adjustment: translateCostText("budgetAdjustment", userContext.lang),
   };
 }
 
@@ -92,7 +115,7 @@ function addActivitySpendingBreakdown(activities, userContext, dayIndex) {
     const pricing = getActivityPricing(place);
     const baseCost = activity.costUsd ?? estimateActivityCost(place, userContext.travelers);
     const breakdown = [
-      baseCost > 0 ? buildSpendingBreakdownItem(pricing.label, baseCost, getActivityCostDescription(place)) : null,
+      baseCost > 0 ? buildSpendingBreakdownItem(pricing.label, baseCost, getActivityCostDescription(place, userContext.lang), userContext.lang) : null,
       ...buildContextualCosts({ activity, userContext, dayIndex, activityIndex }),
     ].filter((item) => item && item.costUsd > 0);
 
@@ -116,26 +139,27 @@ function buildContextualCosts({ activity, userContext, dayIndex, activityIndex }
       buildSpendingBreakdownItem(
         "Traslado desde aeropuerto",
         estimateAirportTransfer(activity, travelers),
-        "Rango realista para taxi/shuttle desde SAL segun distancia y zona."
+        translateCostText("airportTransfer", userContext.lang),
+        userContext.lang
       )
     );
   } else {
     const transportCost = estimateLocalTransport(activity, travelers);
     if (transportCost > 0) {
-      costs.push(buildSpendingBreakdownItem("Transporte local", transportCost, "Taxi, rideshare o movilidad corta entre puntos cercanos."));
+      costs.push(buildSpendingBreakdownItem("Transporte local", transportCost, translateCostText("localTransport", userContext.lang), userContext.lang));
     }
   }
 
   if (["playa", "naturaleza", "aventura"].includes(category)) {
-    costs.push(buildSpendingBreakdownItem("Parqueo, duchas o extras", Math.max(3, travelers * 2), "Extras comunes cuando aplica."));
+    costs.push(buildSpendingBreakdownItem("Parqueo, duchas o extras", Math.max(3, travelers * 2), translateCostText("extras", userContext.lang), userContext.lang));
   }
 
   if (category === "comida" && isPremiumPlace(activity)) {
-    costs.push(buildSpendingBreakdownItem("Bebidas o propina", travelers * 4, "Margen para bebidas, propina o servicio."));
+    costs.push(buildSpendingBreakdownItem("Bebidas o propina", travelers * 4, translateCostText("drinksTip", userContext.lang), userContext.lang));
   }
 
   if (["vida_nocturna", "bebidas", "musica"].includes(category)) {
-    costs.push(buildSpendingBreakdownItem("Propina o cover adicional", travelers * 3, "Margen para cover, servicio o consumo minimo."));
+    costs.push(buildSpendingBreakdownItem("Propina o cover adicional", travelers * 3, translateCostText("nightlifeExtra", userContext.lang), userContext.lang));
   }
 
   return costs;
@@ -190,24 +214,24 @@ function estimateAirportTransfer(activity, travelers) {
   return 35 * groupSizeMultiplier;
 }
 
-function getActivityCostDescription(place) {
+function getActivityCostDescription(place, lang = "es") {
   const category = getPrimaryCategory(place);
   const descriptions = {
-    playa: "Muchas playas no cobran entrada, pero puede haber consumo minimo o parqueo.",
-    comida: "Estimado por plato principal sencillo o comida casual.",
-    vida_nocturna: "Estimado por consumo responsable en bar o discoteca.",
-    bebidas: "Estimado por bebidas o consumo minimo.",
-    hospedaje: "Referencia de habitacion economica; puede variar por temporada.",
-    tour: "Estimado para tour local sencillo o entrada guiada.",
-    aventura: "Estimado para actividad con operador local.",
+    playa: { es: "Muchas playas no cobran entrada, pero puede haber consumo minimo o parqueo.", en: "Many beaches do not charge entry, but parking or minimum spend may apply." },
+    comida: { es: "Estimado por plato principal sencillo o comida casual.", en: "Estimate for a simple main dish or casual meal." },
+    vida_nocturna: { es: "Estimado por consumo responsable en bar o discoteca.", en: "Estimate for responsible spending at a bar or club." },
+    bebidas: { es: "Estimado por bebidas o consumo minimo.", en: "Estimate for drinks or minimum spend." },
+    hospedaje: { es: "Referencia de habitacion economica; puede variar por temporada.", en: "Budget room reference; it may vary by season." },
+    tour: { es: "Estimado para tour local sencillo o entrada guiada.", en: "Estimate for a simple local tour or guided entrance." },
+    aventura: { es: "Estimado para actividad con operador local.", en: "Estimate for an activity with a local operator." },
   };
 
-  return descriptions[category] || "Estimado referencial segun categoria y zona.";
+  return descriptions[category]?.[lang] || descriptions[category]?.es || translateCostText("genericEstimate", lang);
 }
 
-function buildSpendingBreakdownItem(category, costUsd, description) {
+function buildSpendingBreakdownItem(category, costUsd, description, lang = "es") {
   return {
-    category,
+    category: translateCostLabel(category, lang),
     costUsd: roundUsd(costUsd),
     description,
     estimated: true,
@@ -228,6 +252,50 @@ function aggregateDailySpending(activities) {
     costUsd: roundUsd(costUsd),
     description: "Total estimado del dia.",
   }));
+}
+
+function translateCostLabel(label, lang = "es") {
+  if (lang === "en") return COST_LABEL_TRANSLATIONS[label]?.en || label;
+  return label;
+}
+
+function translateCostText(key, lang = "es") {
+  const texts = {
+    budgetNote: {
+      es: "Se ajusto el estimado a una opcion mas economica.",
+      en: "The estimate was adjusted to a more budget-friendly option.",
+    },
+    budgetAdjustment: {
+      es: "Se ajustaron costos estimados usando rangos economicos para mantenerse cerca del presupuesto.",
+      en: "Estimated costs were adjusted with budget-friendly ranges to stay close to the budget.",
+    },
+    airportTransfer: {
+      es: "Rango realista para taxi/shuttle desde SAL segun distancia y zona.",
+      en: "Realistic taxi or shuttle range from SAL based on distance and area.",
+    },
+    localTransport: {
+      es: "Taxi, rideshare o movilidad corta entre puntos cercanos.",
+      en: "Taxi, rideshare, or short mobility between nearby stops.",
+    },
+    extras: {
+      es: "Extras comunes cuando aplica.",
+      en: "Common extras when applicable.",
+    },
+    drinksTip: {
+      es: "Margen para bebidas, propina o servicio.",
+      en: "Buffer for drinks, tip, or service.",
+    },
+    nightlifeExtra: {
+      es: "Margen para cover, servicio o consumo minimo.",
+      en: "Buffer for cover, service, or minimum spend.",
+    },
+    genericEstimate: {
+      es: "Estimado referencial segun categoria y zona.",
+      en: "Reference estimate based on category and area.",
+    },
+  };
+
+  return texts[key]?.[lang] || texts[key]?.es || "";
 }
 
 function refreshDayCosts(days) {

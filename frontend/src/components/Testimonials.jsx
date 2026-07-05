@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
-import { avatarUrl, display, testimonials } from "../services/Data.js";
+import { useI18n } from "../i18n/useI18n";
+import { avatarUrl, display, getLandingContent } from "../services/Data.js";
 
 function TestimonialCard({ name, role, quote }) {
   return (
@@ -25,6 +26,8 @@ function TestimonialCard({ name, role, quote }) {
 }
 
 export function Testimonials() {
+  const { language, t } = useI18n();
+  const { testimonials } = getLandingContent(language);
   const [start, setStart] = useState(0);
 
   const visible = [
@@ -42,10 +45,10 @@ export function Testimonials() {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-sm font-semibold text-[#1C7C74]">
-              Experiencias reales
+              {t.testimonials.eyebrow}
             </p>
             <h2 className="mt-2 text-3xl font-bold text-slate-950" style={display}>
-              Lo que dicen los viajeros.
+              {t.testimonials.title}
             </h2>
           </div>
 
@@ -53,7 +56,7 @@ export function Testimonials() {
             <button
               type="button"
               onClick={showPrev}
-              aria-label="Ver testimonios anteriores"
+              aria-label={t.testimonials.previous}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-950 hover:text-slate-950"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -61,7 +64,7 @@ export function Testimonials() {
             <button
               type="button"
               onClick={showNext}
-              aria-label="Ver más testimonios"
+              aria-label={t.testimonials.next}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-950 hover:text-slate-950"
             >
               <ChevronRight className="h-4 w-4" />

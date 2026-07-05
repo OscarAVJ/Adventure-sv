@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { destinations, display, mono } from "../services/Data.js";
+import { useI18n } from "../i18n/useI18n";
+import { display, getLandingContent, mono } from "../services/Data.js";
 
 function DestinationCard({ image, tag, title, price }) {
   return (
@@ -27,26 +28,29 @@ function DestinationCard({ image, tag, title, price }) {
 }
 
 export function Destinations() {
+  const { language, t } = useI18n();
+  const { destinations } = getLandingContent(language);
+
   return (
     <section className="bg-white py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-brand-700">
-              Destinos recomendados
+              {t.destinations.eyebrow}
             </p>
             <h2
               className="mt-2 max-w-xl text-3xl font-bold text-slate-950"
               style={display}
             >
-              Tu viaje hacia el destino perfecto.
+              {t.destinations.title}
             </h2>
           </div>
           <Link
             to="/planner"
             className="text-sm font-semibold text-brand-700 underline-offset-4 hover:underline"
           >
-            Ver todos los destinos
+            {t.destinations.viewAll}
           </Link>
         </div>
 

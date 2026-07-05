@@ -3,11 +3,19 @@ import { AppError } from "../utils/AppError.js";
 
 export async function searchCandidatePlaces(userContext) {
   if (!env.googleMapsApiKey) {
-    throw new AppError("Google Places no esta configurado.", 503, ["Configura GOOGLE_MAPS_API_KEY para obtener lugares reales."]);
+    throw new AppError(
+      userContext.lang === "en" ? "Google Places is not configured." : "Google Places no esta configurado.",
+      503,
+      [
+        userContext.lang === "en"
+          ? "Configure GOOGLE_MAPS_API_KEY to get real places."
+          : "Configura GOOGLE_MAPS_API_KEY para obtener lugares reales.",
+      ]
+    );
   }
 
   const queries = buildPlacesQueries(userContext);
-  const locationBias = await resolveLocationBias(userContext.preferredZone);
+  const locationBias = await resolveLocationBias(userContext.preferredZone, userContext.lang);
   const places = [];
 
   for (const query of queries) {
@@ -20,9 +28,10 @@ export async function searchCandidatePlaces(userContext) {
 }
 
 async function fetchGooglePlaces(query, userContext, locationBias = null) {
+  const languageCode = getGoogleLanguageCode(userContext.lang);
   const body = {
     textQuery: query,
-    languageCode: "es",
+    languageCode,
     regionCode: "SV",
     maxResultCount: 10,
   };
@@ -58,9 +67,9 @@ async function fetchGooglePlaces(query, userContext, locationBias = null) {
 
   if (!response.ok) {
     const errorBody = await safeReadJson(response);
-    throw new AppError("Google Places no pudo devolver recomendaciones.", 502, [
+    throw new AppError(userContext.lang === "en" ? "Google Places could not return recommendations." : "Google Places no pudo devolver recomendaciones.", 502, [
       `Google Places HTTP status: ${response.status}`,
-      errorBody?.error?.message || "Sin detalle adicional de Google Places.",
+      errorBody?.error?.message || (userContext.lang === "en" ? "No additional detail from Google Places." : "Sin detalle adicional de Google Places."),
     ]);
   }
 
@@ -76,8 +85,12 @@ function buildPlacesQueries(userContext) {
   const aiQueries = Array.isArray(userContext.aiSearchQueries) ? userContext.aiSearchQueries : [];
   const expandedInterests = expandInterestsForSearch(interests);
   const nearbyHotelQueries = userContext.lodgingNearPreferredPlace
-    ? preferredPlaces.flatMap((place) => [`hotel cerca de ${place} ${zone}`, `hoteles cerca de ${place} ${zone}`])
+    ? preferredPlaces.flatMap((place) =>
+        userContext.lang === "en" ? [`hotel near ${place} ${zone}`, `lodging near ${place} ${zone}`] : [`hotel cerca de ${place} ${zone}`, `hoteles cerca de ${place} ${zone}`]
+      )
     : [];
+  const recommendedPlacesQuery = userContext.lang === "en" ? "recommended places" : "lugares recomendados";
+  const touristCentersQuery = userContext.lang === "en" ? "tourist attractions" : "centros turisticos";
 
   const queryCandidates = [
     ...preferredPlaces.map((place) => `${place} ${zone}`),
@@ -86,9 +99,9 @@ function buildPlacesQueries(userContext) {
     ...aiQueries,
     message ? `${message} ${zone}` : null,
     expandedInterests.length > 0 ? `${expandedInterests.join(" ")} ${zone}` : null,
-    expandedInterests.length > 0 ? `${expandedInterests.join(" ")} lugares recomendados ${zone}` : null,
+    expandedInterests.length > 0 ? `${expandedInterests.join(" ")} ${recommendedPlacesQuery} ${zone}` : null,
     ...expandedInterests.map((interest) => `${interest} ${zone}`),
-    `centros turisticos ${zone}`,
+    `${touristCentersQuery} ${zone}`,
   ];
 
   return [...new Set(queryCandidates.map(normalizeQuery).filter(Boolean))]
@@ -107,9 +120,10 @@ function dedupePlaces(places) {
     .slice(0, 30);
 }
 
-async function resolveLocationBias(preferredZone) {
+async function resolveLocationBias(preferredZone, lang = "es") {
   const zoneQuery = cleanZoneQuery(preferredZone);
   if (!zoneQuery) return null;
+  const languageCode = getGoogleLanguageCode(lang);
 
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
@@ -120,7 +134,7 @@ async function resolveLocationBias(preferredZone) {
     },
     body: JSON.stringify({
       textQuery: `${zoneQuery} El Salvador`,
-      languageCode: "es",
+      languageCode,
       regionCode: "SV",
       maxResultCount: 1,
     }),
@@ -154,7 +168,7 @@ function mapGooglePlace(place, userContext, locationBias = null) {
   const distanceMeters = locationBias ? calculateDistanceMeters(locationBias.center, coordinates) : null;
 
   return {
-    name: place.displayName?.text || "Lugar turistico",
+    name: place.displayName?.text || (userContext.lang === "en" ? "Tourist place" : "Lugar turistico"),
     type: inferredType,
     address: place.formattedAddress || null,
     googleMapsUrl: place.googleMapsUri || buildGoogleMapsUrl(place),
@@ -247,6 +261,10 @@ function expandInterestsForSearch(interests) {
       })
     ),
   ].filter(Boolean);
+}
+
+function getGoogleLanguageCode(lang = "es") {
+  return lang === "en" ? "en" : "es";
 }
 
 async function safeReadJson(response) {

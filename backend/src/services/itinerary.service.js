@@ -44,44 +44,55 @@ export async function buildItineraryResult(input) {
     searchCandidatePlaces(userContext),
   ]);
   const season = getRelevantSeason(activeSeason, userContext);
+  const localizedSeason = localizeSeason(season, userContext.lang);
+  const localizedOccasionRule = localizeOccasionRule(occasionRule, userContext.lang);
 
   const promotedPlaces = await findPromotedPlaces(candidatePlaces);
   const rankedPlaces = rankPlaces({ places: candidatePlaces, userContext, promotedPlaces, season, occasionRule });
   if (candidatePlaces.length === 0 || rankedPlaces.length === 0) {
     throw new AppError(
-      "No se encontraron recomendaciones reales para esta solicitud.",
+      userContext.lang === "en" ? "No real recommendations were found for this request." : "No se encontraron recomendaciones reales para esta solicitud.",
       404,
-      ["Ajusta la descripcion del viaje o verifica la configuracion de Google Places."]
+      [
+        userContext.lang === "en"
+          ? "Adjust the trip description or verify the Google Places configuration."
+          : "Ajusta la descripcion del viaje o verifica la configuracion de Google Places.",
+      ]
     );
   }
 
-  const aiPlan = await buildItineraryPlanWithAi({ userContext, season, occasionRule, rankedPlaces });
+  const aiPlan = await buildItineraryPlanWithAi({ userContext, season: localizedSeason, occasionRule: localizedOccasionRule, rankedPlaces });
   if (!aiPlan) {
     throw new AppError(
-      "No se pudo generar un itinerario con IA para esta solicitud.",
+      userContext.lang === "en" ? "AI could not generate an itinerary for this request." : "No se pudo generar un itinerario con IA para esta solicitud.",
       503,
-      ["Verifica la configuracion de IA o intenta con una descripcion mas especifica."]
+      [
+        userContext.lang === "en"
+          ? "Verify the AI configuration or try a more specific description."
+          : "Verifica la configuracion de IA o intenta con una descripcion mas especifica.",
+      ]
     );
   }
 
   const selectedPlanByDay = buildSelectedPlanByDay({ aiPlan, rankedPlaces, userContext });
-  const days = await buildDays({ userContext, selectedPlanByDay, rankedPlaces, season, occasionRule });
+  const days = await buildDays({ userContext, selectedPlanByDay, rankedPlaces, season: localizedSeason, occasionRule: localizedOccasionRule });
   const fitted = fitActivitiesToBudget(days, userContext.budgetUsd, userContext);
   const adjustments = buildAdjustments({
-    season,
-    occasionRule,
+    season: localizedSeason,
+    occasionRule: localizedOccasionRule,
     promotedPlaces,
     budgetAdjustment: fitted.adjustment,
     aiPlan,
+    lang: userContext.lang,
   });
-  const summary = await buildItinerarySummary({ userContext, season, occasionRule, days: fitted.days });
+  const summary = await buildItinerarySummary({ userContext, season: localizedSeason, occasionRule: localizedOccasionRule, days: fitted.days });
 
   const itineraryPayload = {
     lang: userContext.lang || "es",
     summary,
     context: {
-      season: season ? { key: season.key, label: season.label } : null,
-      occasion: occasionRule ? { key: occasionRule.key, label: occasionRule.label } : null,
+      season: localizedSeason ? { key: localizedSeason.key, label: localizedSeason.label } : null,
+      occasion: localizedOccasionRule ? { key: localizedOccasionRule.key, label: localizedOccasionRule.label } : null,
     },
     budgetUsd: userContext.budgetUsd,
     estimatedCostUsd: fitted.estimatedCostUsd,
@@ -92,8 +103,8 @@ export async function buildItineraryResult(input) {
   return {
     userContext,
     itineraryPayload,
-    occasionRule,
-    season,
+    occasionRule: localizedOccasionRule,
+    season: localizedSeason,
   };
 }
 
@@ -168,7 +179,11 @@ export async function rerollItineraryActivity({ itineraryId, activityId, reason 
   const replacement = rankedPlaces.find((place) => !rejectedPlaceIds.has(place.googlePlaceId) && !dayPlaceIds.has(place.googlePlaceId));
 
   if (!replacement) {
-    throw new AppError("no_alternative_available", 409, ["No encontramos otra opcion cercana en esta categoria."]);
+    throw new AppError(
+      "no_alternative_available",
+      409,
+      [userContext.lang === "en" ? "We could not find another nearby option in this category." : "No encontramos otra opcion cercana en esta categoria."]
+    );
   }
 
   const nextActivity = buildActivity({
@@ -297,16 +312,16 @@ function buildRerollUserContext({ itinerary, day, currentActivity, reason }) {
   const request = itinerary.request?.toObject?.() || itinerary.request || {};
   const category = currentActivity.type || "tour";
   const messageByReason = {
-    closed: "Reemplazar una actividad cerrada por una opcion cercana real.",
-    rain: "Reemplazar una actividad afectada por lluvia por una opcion cercana real.",
-    disliked: "Reemplazar una actividad que no gusto por una opcion cercana real.",
+    closed: request.lang === "en" ? "Replace a closed activity with a real nearby option." : "Reemplazar una actividad cerrada por una opcion cercana real.",
+    rain: request.lang === "en" ? "Replace an activity affected by rain with a real nearby option." : "Reemplazar una actividad afectada por lluvia por una opcion cercana real.",
+    disliked: request.lang === "en" ? "Replace an activity the traveler disliked with a real nearby option." : "Reemplazar una actividad que no gusto por una opcion cercana real.",
   };
 
   return {
     ...request,
     channel: itinerary.channel,
     phone: itinerary.phone,
-    message: `${request.message || ""} ${messageByReason[reason] || "Reemplazar actividad por una opcion cercana real."}`.trim(),
+    message: `${request.message || ""} ${messageByReason[reason] || (request.lang === "en" ? "Replace activity with a real nearby option." : "Reemplazar actividad por una opcion cercana real.")}`.trim(),
     interests: [category, ...(request.interests || [])].filter(Boolean),
     preferredZone: day.zone || request.preferredZone || "El Salvador",
     days: 1,
@@ -397,9 +412,59 @@ function translateItineraryText(key, lang = "es", values = {}) {
     featuredReason: { es: "Negocio priorizado relevante", en: "Relevant prioritized business" },
     seasonReason: { es: "Encaja con la temporada del viaje", en: "Fits the travel season" },
     occasionReason: { es: "Encaja con la ocasion especial", en: "Fits the special occasion" },
+    alternativeReason: { es: "Alternativa compatible si queres cambiar el ritmo del dia.", en: "Compatible alternative if you want to change the day's pace." },
+    aiPlanAdjustment: {
+      es: "La IA selecciono y ordeno las recomendaciones finales usando solo lugares candidatos verificados.",
+      en: "AI selected and ordered the final recommendations using only verified candidate places.",
+    },
+    seasonAdjustment: {
+      es: `Se considero temporada de ${String(values.label || "").toLowerCase()} como boost contextual, sin desplazar la intencion principal.`,
+      en: `${values.label} season was considered as context without replacing the main travel intent.`,
+    },
+    occasionAdjustment: {
+      es: `Se agregaron senales compatibles con ${String(values.label || "").toLowerCase()} cuando encajaban con la ruta.`,
+      en: `Signals compatible with ${String(values.label || "").toLowerCase()} were added when they fit the route.`,
+    },
+    promotedAdjustment: {
+      es: "Se priorizaron negocios comerciales solo cuando coincidian con intereses, presupuesto y zona.",
+      en: "Commercial partners were prioritized only when they matched interests, budget, and area.",
+    },
   };
 
   return translations[key]?.[lang] || translations[key]?.es || "";
+}
+
+function localizeSeason(season, lang = "es") {
+  if (!season) return null;
+  const labels = {
+    christmas: { en: "Christmas" },
+    holy_week: { en: "Holy Week" },
+    surf_season: { en: "surf" },
+  };
+
+  return {
+    ...season,
+    label: lang === "en" ? labels[season.key]?.en || season.label : season.label,
+  };
+}
+
+function localizeOccasionRule(occasionRule, lang = "es") {
+  if (!occasionRule) return null;
+  const labels = {
+    birthday: { en: "Birthday" },
+    anniversary: { en: "Anniversary" },
+    family: { en: "Family trip" },
+    friends: { en: "Trip with friends" },
+    nightlife: { en: "Nightlife" },
+    romantic: { en: "Romantic trip" },
+    adventure: { en: "Adventure" },
+    rest: { en: "Rest" },
+  };
+
+  return {
+    ...occasionRule,
+    label: lang === "en" ? labels[occasionRule.key]?.en || occasionRule.label : occasionRule.label,
+  };
 }
 
 function buildSelectedPlanByDay({ aiPlan, rankedPlaces, userContext }) {
@@ -473,7 +538,7 @@ function buildDayAlternatives({ dayPlanItems, rankedPlaces, userContext }) {
       openNow: place.openNow,
       openingHours: place.openingHours || [],
       estimatedCostUsd: estimateActivityCost(place, userContext.travelers),
-      reason: "Alternativa compatible si queres cambiar el ritmo del dia.",
+      reason: translateItineraryText("alternativeReason", userContext.lang),
       googlePlaceId: place.googlePlaceId,
     }));
 }
@@ -489,13 +554,13 @@ function addDays(dateValue, amount) {
   return date.toISOString().slice(0, 10);
 }
 
-function buildAdjustments({ season, occasionRule, promotedPlaces, budgetAdjustment, aiPlan }) {
+function buildAdjustments({ season, occasionRule, promotedPlaces, budgetAdjustment, aiPlan, lang = "es" }) {
   return [
-    aiPlan ? "La IA selecciono y ordeno las recomendaciones finales usando solo lugares candidatos verificados." : null,
+    aiPlan ? translateItineraryText("aiPlanAdjustment", lang) : null,
     ...(aiPlan?.adjustments || []),
-    season ? `Se considero temporada de ${season.label.toLowerCase()} como boost contextual, sin desplazar la intencion principal.` : null,
-    occasionRule ? `Se agregaron senales compatibles con ${occasionRule.label.toLowerCase()} cuando encajaban con la ruta.` : null,
-    promotedPlaces.length > 0 ? "Se priorizaron negocios comerciales solo cuando coincidian con intereses, presupuesto y zona." : null,
+    season ? translateItineraryText("seasonAdjustment", lang, { label: season.label }) : null,
+    occasionRule ? translateItineraryText("occasionAdjustment", lang, { label: occasionRule.label }) : null,
+    promotedPlaces.length > 0 ? translateItineraryText("promotedAdjustment", lang) : null,
     budgetAdjustment,
   ].filter(Boolean);
 }

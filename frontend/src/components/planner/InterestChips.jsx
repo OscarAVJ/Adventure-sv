@@ -1,7 +1,11 @@
 import { cn } from "../../utils/cn";
 import { interestOptions } from "../../constants/plannerOptions";
+import { useI18n } from "../../i18n/useI18n";
 
 export function InterestChips({ selected, onChange }) {
+  const { language } = useI18n();
+  const options = interestOptions[language] || interestOptions.es;
+
   function toggleInterest(value) {
     if (selected.includes(value)) {
       onChange(selected.filter((item) => item !== value));
@@ -13,7 +17,7 @@ export function InterestChips({ selected, onChange }) {
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {interestOptions.map((option) => {
+      {options.map((option) => {
         const isSelected = selected.includes(option.value);
 
         return (

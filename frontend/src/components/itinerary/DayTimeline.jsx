@@ -1,13 +1,16 @@
 import { CloudSun } from "lucide-react";
 import { ActivityCard } from "./ActivityCard";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { useI18n } from "../../i18n/useI18n";
 
 export function DayTimeline({ day, onRerollActivity, rerollingActivityId, rerollError }) {
+  const { t } = useI18n();
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-brand-700">Dia {day.day}</p>
+          <p className="text-sm font-medium text-brand-700">{t.itinerary.day} {day.day}</p>
           <h2 className="text-xl font-semibold text-slate-950">{day.zone}</h2>
           <p className="text-sm text-slate-500">{day.date}</p>
         </div>
