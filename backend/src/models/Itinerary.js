@@ -14,6 +14,7 @@ const itinerarySchema = new mongoose.Schema(
     budgetUsd: Number,
     estimatedCostUsd: Number,
     adjustments: [String],
+    rejectedPlaceIds: [String],
     days: [Object],
   },
   { timestamps: true }

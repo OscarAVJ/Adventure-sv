@@ -1,8 +1,8 @@
-import { ExternalLink, MapPin } from "lucide-react";
+import { ExternalLink, MapPin, RefreshCw } from "lucide-react";
 import { BadgeList } from "./BadgeList";
 import { formatCurrency } from "../../utils/formatCurrency";
 
-export function ActivityCard({ activity }) {
+export function ActivityCard({ activity, isRerolling = false, rerollError = null, onReroll }) {
   const displayCost = activity.estimatedTotalCostUsd ?? activity.costUsd;
   const openStatus = getOpenStatus(activity.openNow);
   const todayHours = getTodayHours(activity.openingHours);
@@ -25,6 +25,19 @@ export function ActivityCard({ activity }) {
 
       <div className="mt-3">
         <BadgeList badges={activity.badges} />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onReroll}
+          disabled={isRerolling || !activity.id}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRerolling ? "animate-spin" : ""}`} />
+          {isRerolling ? "Buscando opcion..." : "Cambiar actividad"}
+        </button>
+        {rerollError && <p className="text-sm font-medium text-red-600">{rerollError}</p>}
       </div>
 
       {activity.matchReasons?.length > 0 && (

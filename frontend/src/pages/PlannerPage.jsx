@@ -6,7 +6,7 @@ import { ItineraryResult } from "../components/itinerary/ItineraryResult";
 import { useItinerary } from "../hooks/useItinerary";
 
 export function PlannerPage() {
-  const { itinerary, status, error, generateItinerary } = useItinerary();
+  const { itinerary, status, error, rerollingActivityId, rerollError, generateItinerary, changeActivity } = useItinerary();
   const isLoading = status === "loading";
 
   return (
@@ -67,7 +67,14 @@ export function PlannerPage() {
             </div>
           )}
 
-          {itinerary && <ItineraryResult itinerary={itinerary} />}
+          {itinerary && (
+            <ItineraryResult
+              itinerary={itinerary}
+              onRerollActivity={changeActivity}
+              rerollingActivityId={rerollingActivityId}
+              rerollError={rerollError}
+            />
+          )}
         </section>
       </div>
     </main>

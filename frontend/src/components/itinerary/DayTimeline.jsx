@@ -2,7 +2,7 @@ import { CloudSun } from "lucide-react";
 import { ActivityCard } from "./ActivityCard";
 import { formatCurrency } from "../../utils/formatCurrency";
 
-export function DayTimeline({ day }) {
+export function DayTimeline({ day, onRerollActivity, rerollingActivityId, rerollError }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -26,8 +26,11 @@ export function DayTimeline({ day }) {
       <div className="mt-5 space-y-3">
         {day.activities.map((activity) => (
           <ActivityCard
-            key={`${day.day}-${activity.time}-${activity.name}`}
+            key={activity.id || `${day.day}-${activity.time}-${activity.name}`}
             activity={activity}
+            isRerolling={rerollingActivityId === activity.id}
+            rerollError={rerollError?.activityId === activity.id ? rerollError.message : null}
+            onReroll={() => onRerollActivity?.(activity.id, "disliked")}
           />
         ))}
       </div>

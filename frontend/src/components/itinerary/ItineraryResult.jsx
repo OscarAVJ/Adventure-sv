@@ -4,7 +4,7 @@ import { BudgetSummary } from "./BudgetSummary";
 import { DayTimeline } from "./DayTimeline";
 import { MapView } from "./MapView";
 
-export function ItineraryResult({ itinerary }) {
+export function ItineraryResult({ itinerary, onRerollActivity, rerollingActivityId, rerollError }) {
   if (!itinerary) return null;
 
   return (
@@ -44,7 +44,13 @@ export function ItineraryResult({ itinerary }) {
 
       <div className="space-y-4">
         {itinerary.days.map((day) => (
-          <DayTimeline key={`${day.day}-${day.date}`} day={day} />
+          <DayTimeline
+            key={`${day.day}-${day.date}`}
+            day={day}
+            onRerollActivity={onRerollActivity}
+            rerollingActivityId={rerollingActivityId}
+            rerollError={rerollError}
+          />
         ))}
       </div>
     </div>

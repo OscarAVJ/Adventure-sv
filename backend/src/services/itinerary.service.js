@@ -1,9 +1,10 @@
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { Conversation } from "../models/Conversation.js";
 import { Itinerary } from "../models/Itinerary.js";
 import { PromotedPlace } from "../models/PromotedPlace.js";
 import { buildItineraryPlanWithAi, buildItinerarySummary, enrichTripContextWithAi } from "./ai.service.js";
-import { estimateActivityCost, fitActivitiesToBudget } from "./cost.service.js";
+import { estimateActivityCost, fitActivitiesToBudget, recalculateDayCosts } from "./cost.service.js";
 import { searchCandidatePlaces } from "./googlePlaces.service.js";
 import { normalizeTripInput } from "./intent.service.js";
 import { findOccasionRule } from "./occasion.service.js";
@@ -83,6 +84,73 @@ export async function generateItinerary(input) {
   };
 }
 
+export async function rerollItineraryActivity({ itineraryId, activityId, reason }) {
+  if (!mongoose.Types.ObjectId.isValid(itineraryId)) {
+    throw new AppError("Itinerario no valido.", 400);
+  }
+
+  const itinerary = await Itinerary.findById(itineraryId);
+  if (!itinerary) {
+    throw new AppError("Itinerario no encontrado.", 404);
+  }
+
+  const days = itinerary.days || [];
+  const dayIndex = days.findIndex((day) => (day.activities || []).some((activity) => activity.id === activityId));
+  if (dayIndex < 0) {
+    throw new AppError("Actividad no encontrada.", 404);
+  }
+
+  const day = days[dayIndex];
+  const activityIndex = (day.activities || []).findIndex((activity) => activity.id === activityId);
+  const currentActivity = day.activities[activityIndex];
+  const rejectedPlaceIds = new Set([...(itinerary.rejectedPlaceIds || []), currentActivity.googlePlaceId].filter(Boolean));
+  const dayPlaceIds = new Set((day.activities || []).map((activity) => activity.googlePlaceId).filter(Boolean));
+  const userContext = buildRerollUserContext({ itinerary, day, currentActivity, reason });
+  const [activeSeason, occasionRule, candidatePlaces] = await Promise.all([
+    findActiveSeason(userContext.startDate),
+    findOccasionRule(userContext.occasion),
+    searchCandidatePlaces(userContext),
+  ]);
+  const season = getRelevantSeason(activeSeason, userContext);
+  const promotedPlaces = await findPromotedPlaces(candidatePlaces);
+  const rankedPlaces = rankPlaces({ places: candidatePlaces, userContext, promotedPlaces, season, occasionRule });
+  const replacement = rankedPlaces.find((place) => !rejectedPlaceIds.has(place.googlePlaceId) && !dayPlaceIds.has(place.googlePlaceId));
+
+  if (!replacement) {
+    throw new AppError("no_alternative_available", 409, ["No encontramos otra opcion cercana en esta categoria."]);
+  }
+
+  const nextActivity = buildActivity({
+    place: replacement,
+    time: currentActivity.time,
+    aiReason: buildRerollReason(reason),
+    aiNotes: "Actividad reemplazada manteniendo la zona, categoria y presupuesto del dia.",
+    userContext,
+    season,
+    occasionRule,
+  });
+  const plainDay = day.toObject?.() || day;
+  const updatedDay = recalculateDayCosts(
+    {
+      ...plainDay,
+      activities: plainDay.activities.map((activity, index) => (index === activityIndex ? nextActivity : activity)),
+    },
+    userContext
+  );
+
+  itinerary.days[dayIndex] = updatedDay;
+  itinerary.rejectedPlaceIds = [...rejectedPlaceIds];
+  itinerary.estimatedCostUsd = itinerary.days.reduce((sum, item) => sum + Number(item.costUsd || 0), 0);
+  itinerary.markModified("days");
+  itinerary.markModified("rejectedPlaceIds");
+  await itinerary.save();
+
+  return {
+    success: true,
+    day: updatedDay,
+  };
+}
+
 async function findPromotedPlaces(candidatePlaces) {
   if (PromotedPlace.db.readyState !== 1) return [];
   const placeIds = candidatePlaces.map((place) => place.googlePlaceId);
@@ -148,6 +216,7 @@ function buildActivity({ place, time, aiReason, aiNotes, userContext, season, oc
   ].filter(Boolean);
 
   return {
+    id: randomUUID(),
     time,
     name: place.name,
     type: place.type,
@@ -166,6 +235,41 @@ function buildActivity({ place, time, aiReason, aiNotes, userContext, season, oc
     matchReasons: buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }),
     notes: aiNotes || buildActivityNotes(place, time),
   };
+}
+
+function buildRerollUserContext({ itinerary, day, currentActivity, reason }) {
+  const request = itinerary.request?.toObject?.() || itinerary.request || {};
+  const category = currentActivity.type || "tour";
+  const messageByReason = {
+    closed: "Reemplazar una actividad cerrada por una opcion cercana real.",
+    rain: "Reemplazar una actividad afectada por lluvia por una opcion cercana real.",
+    disliked: "Reemplazar una actividad que no gusto por una opcion cercana real.",
+  };
+
+  return {
+    ...request,
+    channel: itinerary.channel,
+    phone: itinerary.phone,
+    message: `${request.message || ""} ${messageByReason[reason] || "Reemplazar actividad por una opcion cercana real."}`.trim(),
+    interests: [category, ...(request.interests || [])].filter(Boolean),
+    preferredZone: day.zone || request.preferredZone || "El Salvador",
+    days: 1,
+    startDate: day.date || request.startDate,
+    travelers: request.travelers || 1,
+    budgetUsd: itinerary.budgetUsd || request.budgetUsd || 0,
+    preferredPlaces: [],
+    lodgingNearPreferredPlace: false,
+  };
+}
+
+function buildRerollReason(reason) {
+  const reasons = {
+    closed: "Reemplazo solicitado porque el lugar anterior estaba cerrado.",
+    rain: "Reemplazo solicitado por condicion de lluvia.",
+    disliked: "Reemplazo solicitado por preferencia del viajero.",
+  };
+
+  return reasons[reason] || "Reemplazo solicitado por el viajero.";
 }
 
 function buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }) {

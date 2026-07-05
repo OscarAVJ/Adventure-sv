@@ -53,6 +53,11 @@ export function fitActivitiesToBudget(days, budgetUsd, userContext = {}) {
   };
 }
 
+export function recalculateDayCosts(day, userContext = {}) {
+  const [dayWithSpending] = addSpendingOptions([{ ...day }], userContext);
+  return refreshDayCosts([dayWithSpending])[0];
+}
+
 function addSpendingOptions(days, userContext) {
   const travelers = Math.max(Number(userContext.travelers || 1), 1);
   const message = String(userContext.message || "").toLowerCase();
