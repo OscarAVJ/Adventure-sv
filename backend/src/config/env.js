@@ -10,6 +10,7 @@ export const env = {
   aiProvider: process.env.AI_PROVIDER || "gemini",
   aiApiKey: process.env.AI_API_KEY || "",
   aiModel: process.env.AI_MODEL || "gemini-2.5-flash",
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   skipDbConnection: process.env.SKIP_DB_CONNECTION === "true",
   nodeEnv: process.env.NODE_ENV || "development",

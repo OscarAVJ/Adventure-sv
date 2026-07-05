@@ -1,11 +1,18 @@
-import { generateItinerary, rerollItineraryActivity } from "../services/itinerary.service.js";
+import { getItineraryStatus, startAsyncItineraryGeneration } from "../services/asyncItinerary.service.js";
+import { rerollItineraryActivity } from "../services/itinerary.service.js";
 import { handleN8nChatMessage, handleN8nTelegramMessage, handleN8nWhatsappMessage } from "../services/n8nWhatsapp.service.js";
+import { handleTelegramCallback } from "../services/tripMode.service.js";
 import { validateItineraryRequest } from "../validators/itinerary.validator.js";
 
 export async function createItinerary(req, res) {
   validateItineraryRequest(req.body);
-  const response = await generateItinerary(req.body);
-  res.status(201).json(response);
+  const response = await startAsyncItineraryGeneration(req.body);
+  res.status(response.mode === "async" ? 202 : 201).json(response);
+}
+
+export async function getItineraryGenerationStatus(req, res) {
+  const response = await getItineraryStatus(req.params.itineraryId);
+  res.status(response.status === "error" ? 500 : 200).json(response);
 }
 
 export async function rerollActivity(req, res) {
@@ -19,15 +26,20 @@ export async function rerollActivity(req, res) {
 
 export async function createItineraryFromN8nWhatsapp(req, res) {
   const response = await handleN8nWhatsappMessage(req.body);
-  res.status(response.status === "needs_input" ? 200 : 201).json(response);
+  res.status(response.status === "processing" ? 202 : response.status === "needs_input" ? 200 : 201).json(response);
 }
 
 export async function createItineraryFromN8nTelegram(req, res) {
   const response = await handleN8nTelegramMessage(req.body);
-  res.status(response.status === "needs_input" ? 200 : 201).json(response);
+  res.status(response.status === "processing" ? 202 : response.status === "needs_input" ? 200 : 201).json(response);
 }
 
 export async function createItineraryFromN8nChat(req, res) {
   const response = await handleN8nChatMessage(req.body);
-  res.status(response.status === "needs_input" ? 200 : 201).json(response);
+  res.status(response.status === "processing" ? 202 : response.status === "needs_input" ? 200 : 201).json(response);
+}
+
+export async function receiveTelegramCallback(req, res) {
+  const response = await handleTelegramCallback(req.body);
+  res.status(response.success === false ? 400 : 200).json(response);
 }

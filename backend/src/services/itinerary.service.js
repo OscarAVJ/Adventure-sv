@@ -18,6 +18,25 @@ import { AppError } from "../utils/AppError.js";
 const DAY_TIMES = ["10:00", "13:00", "17:00"];
 
 export async function generateItinerary(input) {
+  const { userContext, itineraryPayload, occasionRule, season } = await buildItineraryResult(input);
+  const savedItinerary = await saveItinerary({ userContext, itineraryPayload });
+  const itinerary = {
+    id: savedItinerary?._id?.toString() || "itinerary_preview",
+    ...itineraryPayload,
+  };
+  const replyText = formatReplyText({ itinerary, occasionRule, season });
+
+  await saveConversationTurn({ userContext, replyText, itineraryId: savedItinerary?._id });
+  await upsertTravelerProfile(userContext);
+
+  return {
+    success: true,
+    replyText,
+    itinerary,
+  };
+}
+
+export async function buildItineraryResult(input) {
   const userContext = await enrichTripContextWithAi(normalizeTripInput(input));
   const [activeSeason, occasionRule, candidatePlaces] = await Promise.all([
     findActiveSeason(userContext.startDate),
@@ -70,20 +89,49 @@ export async function generateItinerary(input) {
     days: fitted.days,
   };
 
-  const savedItinerary = await saveItinerary({ userContext, itineraryPayload });
-  const itinerary = {
-    id: savedItinerary?._id?.toString() || "itinerary_preview",
+  return {
+    userContext,
+    itineraryPayload,
+    occasionRule,
+    season,
+  };
+}
+
+export async function completeExistingItinerary({ itineraryId, input }) {
+  const { userContext, itineraryPayload, occasionRule, season } = await buildItineraryResult(input);
+  const itinerary = await Itinerary.findByIdAndUpdate(
+    itineraryId,
+    {
+      $set: {
+        ...itineraryPayload,
+        request: userContext,
+        channel: userContext.channel,
+        phone: userContext.phone,
+        lang: userContext.lang || "es",
+        status: "ready",
+        errorMessage: null,
+      },
+    },
+    { new: true }
+  );
+
+  if (!itinerary) {
+    throw new AppError("Itinerario no encontrado.", 404);
+  }
+
+  const itineraryResponse = {
+    id: itinerary._id.toString(),
     ...itineraryPayload,
   };
-  const replyText = formatReplyText({ itinerary, occasionRule, season });
+  const replyText = formatReplyText({ itinerary: itineraryResponse, occasionRule, season });
 
-  await saveConversationTurn({ userContext, replyText, itineraryId: savedItinerary?._id });
+  await saveConversationTurn({ userContext, replyText, itineraryId: itinerary._id });
   await upsertTravelerProfile(userContext);
 
   return {
-    success: true,
+    userContext,
     replyText,
-    itinerary,
+    itinerary: itineraryResponse,
   };
 }
 

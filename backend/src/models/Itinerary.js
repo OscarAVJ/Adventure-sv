@@ -14,6 +14,13 @@ const itinerarySchema = new mongoose.Schema(
       default: "es",
     },
     request: Object,
+    status: {
+      type: String,
+      enum: ["processing", "ready", "error"],
+      default: "ready",
+      index: true,
+    },
+    errorMessage: String,
     summary: String,
     context: Object,
     budgetUsd: Number,

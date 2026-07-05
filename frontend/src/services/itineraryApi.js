@@ -11,11 +11,29 @@ export async function createItinerary(payload) {
 
   const data = await response.json();
 
+  if (response.status === 202 || data.status === "processing") {
+    return {
+      status: "processing",
+      itineraryId: data.itineraryId,
+    };
+  }
+
   if (!response.ok || data.success === false) {
     throw new Error(data.message || "No se pudo generar el itinerario.");
   }
 
   return data.itinerary;
+}
+
+export async function getItineraryStatus(itineraryId) {
+  const response = await fetch(`${API_URL}/api/itineraries/${itineraryId}/status`);
+  const data = await response.json();
+
+  if (!response.ok || data.status === "error") {
+    throw new Error(data.error || data.message || "No se pudo generar el itinerario.");
+  }
+
+  return data;
 }
 
 export async function rerollActivity(itineraryId, activityId, reason = "disliked") {

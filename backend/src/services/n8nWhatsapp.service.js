@@ -1,5 +1,6 @@
 import { Conversation } from "../models/Conversation.js";
 import { parseWhatsappTripRequestWithAi } from "./ai.service.js";
+import { startAsyncItineraryGeneration } from "./asyncItinerary.service.js";
 import { extractInterests } from "./intent.service.js";
 import { resolveConversationLanguage } from "./language.service.js";
 import { generateItinerary } from "./itinerary.service.js";
@@ -62,7 +63,21 @@ export async function handleN8nChatMessage(body, { channel = body.channel || "wh
     return response;
   }
 
-  return generateItinerary(requestPayload);
+  if (channel !== "telegram") {
+    return generateItinerary(requestPayload);
+  }
+
+  const asyncResponse = await startAsyncItineraryGeneration(requestPayload, { notifyTelegram: true });
+  if (asyncResponse.mode === "sync") return asyncResponse;
+
+  return {
+    ...asyncResponse,
+    replyText:
+      lang === "en"
+        ? "Give me a moment, I am building your itinerary with real places. I will send it here when it is ready."
+        : "Dame un momento, estoy armando tu itinerario con lugares reales. Te lo envio aqui cuando este listo.",
+    itinerary: null,
+  };
 }
 
 function buildItineraryPayload({ body, aiFields, message, phone, channel, lang }) {

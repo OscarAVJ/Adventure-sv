@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { createItinerary, rerollActivity } from "../services/itineraryApi";
+import { createItinerary, getItineraryStatus, rerollActivity } from "../services/itineraryApi";
+
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLL_ATTEMPTS = 80;
 
 export function useItinerary() {
   const [itinerary, setItinerary] = useState(null);
@@ -14,13 +17,27 @@ export function useItinerary() {
       setError(null);
 
       const result = await createItinerary(payload);
+      const itineraryResult = result?.status === "processing" ? await pollItinerary(result.itineraryId) : result;
 
-      setItinerary(result);
+      setItinerary(itineraryResult);
       setStatus("success");
     } catch (err) {
       setError(err.message || "No se pudo generar el itinerario.");
       setStatus("error");
     }
+  }
+
+  async function pollItinerary(itineraryId) {
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
+      await wait(POLL_INTERVAL_MS);
+      const statusResponse = await getItineraryStatus(itineraryId);
+
+      if (statusResponse.status === "ready") {
+        return statusResponse.itinerary;
+      }
+    }
+
+    throw new Error("El itinerario esta tardando mas de lo esperado. Intenta consultar de nuevo en unos segundos.");
   }
 
   async function changeActivity(activityId, reason = "disliked") {
@@ -64,5 +81,11 @@ export function useItinerary() {
     generateItinerary,
     changeActivity,
   };
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 

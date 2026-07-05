@@ -18,13 +18,18 @@ const WEATHER_CODE_LABELS = {
 };
 
 export async function getWeatherSummary({ date, zone, coordinates }) {
+  const forecast = await getWeatherForecast({ date, zone, coordinates });
+  return forecast.summary;
+}
+
+export async function getWeatherForecast({ date, zone, coordinates }) {
   if (!hasCoordinates(coordinates)) {
-    return fallbackWeatherSummary(zone);
+    return buildFallbackForecast(zone);
   }
 
   try {
     const forecast = await fetchOpenMeteoForecast({ date, coordinates });
-    if (!forecast) return fallbackWeatherSummary(zone);
+    if (!forecast) return buildFallbackForecast(zone);
 
     const condition = WEATHER_CODE_LABELS[forecast.weatherCode] || "variable";
     const rainText =
@@ -32,12 +37,15 @@ export async function getWeatherSummary({ date, zone, coordinates }) {
         ? ` Probabilidad de lluvia: ${forecast.precipitationProbability}%.`
         : "";
 
-    return `Clima esperado ${condition}, entre ${Math.round(forecast.minTemp)}°C y ${Math.round(
-      forecast.maxTemp
-    )}°C.${rainText}`;
+    return {
+      ...forecast,
+      condition,
+      willRain: isRainyForecast(forecast),
+      summary: `Clima esperado ${condition}, entre ${Math.round(forecast.minTemp)} C y ${Math.round(forecast.maxTemp)} C.${rainText}`,
+    };
   } catch (error) {
     console.warn("Open-Meteo forecast unavailable", error.message);
-    return fallbackWeatherSummary(zone);
+    return buildFallbackForecast(zone);
   }
 }
 
@@ -69,6 +77,17 @@ function hasCoordinates(coordinates) {
   return Number.isFinite(Number(coordinates?.lat)) && Number.isFinite(Number(coordinates?.lng));
 }
 
-function fallbackWeatherSummary(zone) {
-  return `Clima esperado agradable para actividades en ${zone || "la zona seleccionada"}.`;
+function buildFallbackForecast(zone) {
+  return {
+    summary: `Clima esperado agradable para actividades en ${zone || "la zona seleccionada"}.`,
+    precipitationProbability: null,
+    weatherCode: null,
+    condition: "variable",
+    willRain: false,
+  };
+}
+
+function isRainyForecast(forecast) {
+  const rainCodes = new Set([51, 53, 55, 61, 63, 65, 80, 81, 82, 95]);
+  return Number(forecast.precipitationProbability || 0) >= 60 || rainCodes.has(Number(forecast.weatherCode));
 }

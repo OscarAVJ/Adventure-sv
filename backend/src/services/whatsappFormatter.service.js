@@ -84,6 +84,28 @@ export function formatReplyText({ itinerary, occasionRule, season }) {
   return [header, budget, days].filter(Boolean).join("\n\n");
 }
 
+export function formatDailySummary({ day, weather, lang = "es" }) {
+  const labels = LABELS[lang] || LABELS.es;
+  const intro =
+    lang === "en"
+      ? `${labels.day} ${day.day} (${day.date}) - ${day.zone}\nHere is your plan for today.`
+      : `${labels.day} ${day.day} (${day.date}) - ${day.zone}\nEste es tu plan para hoy.`;
+  const weatherText = weather?.summary ? `\n\n${lang === "en" ? "Weather" : "Clima"}: ${weather.summary}` : "";
+  const activities = (day.activities || []).map((activity) => formatActivity(activity, lang)).join("\n");
+
+  return `${intro}${weatherText}\n\n${activities}`.trim();
+}
+
+export function formatDayUpdate({ day, lang = "es" }) {
+  const labels = LABELS[lang] || LABELS.es;
+  const title =
+    lang === "en"
+      ? `I updated your ${labels.day.toLowerCase()} ${day.day} plan:`
+      : `Actualice tu plan del ${labels.day.toLowerCase()} ${day.day}:`;
+  const activities = (day.activities || []).map((activity) => formatActivity(activity, lang)).join("\n");
+  return `${title}\n\n${activities}`;
+}
+
 function formatActivity(activity, lang) {
   const labels = LABELS[lang] || LABELS.es;
   const status = formatOpenStatus(activity, lang);
