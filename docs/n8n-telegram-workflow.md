@@ -91,7 +91,7 @@ Prepare Telegram Response
 Codigo:
 
 ```js
-const chatId = $node["Normalize Telegram Payload"].json.chatId;
+const chatId = $("Normalize Telegram Payload").first().json.chatId;
 const fallbackText = "No pude generar una respuesta. Intenta de nuevo con fecha, dias, viajeros y presupuesto.";
 const missingFieldsText = $json.missingFields?.length
   ? `Para armarte una ruta real necesito estos datos:\n- ${$json.missingFields.join("\n- ")}\n\nEjemplo: Quiero 3 dias desde 2026-07-24, somos 4 personas, presupuesto $600, nos gusta cultura y naturaleza.`
