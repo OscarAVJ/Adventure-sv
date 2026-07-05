@@ -2,6 +2,7 @@ import { env } from "../config/env.js";
 import { normalizeText } from "./intent.service.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+const GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_GENERATE_CONTENT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const ALLOWED_INTERESTS = [
@@ -11,13 +12,18 @@ const ALLOWED_INTERESTS = [
   "naturaleza",
   "hospedaje",
   "comida",
+  "vida_nocturna",
+  "bebidas",
+  "musica",
   "tour",
   "romantico",
   "familia",
   "aventura",
+  "compras",
+  "bienestar",
 ];
 
-const ALLOWED_OCCASIONS = ["birthday", "anniversary", "family", "friends", "romantic", "adventure", "rest"];
+const ALLOWED_OCCASIONS = ["birthday", "anniversary", "family", "friends", "nightlife", "romantic", "adventure", "rest"];
 
 export async function enrichTripContextWithAi(userContext) {
   if (!isAiEnabled() || !userContext.message) return userContext;
@@ -89,7 +95,7 @@ export async function buildItineraryPlanWithAi({ userContext, season, occasionRu
 
   try {
     const result = await requestItineraryPlan({ userContext, season, occasionRule, rankedPlaces });
-    return sanitizeItineraryPlan(result, rankedPlaces, userContext.days);
+    return sanitizeItineraryPlan(result, rankedPlaces, userContext);
   } catch (error) {
     console.warn("AI itinerary planning unavailable", error.message);
     return null;
@@ -97,7 +103,7 @@ export async function buildItineraryPlanWithAi({ userContext, season, occasionRu
 }
 
 function isAiEnabled() {
-  return ["openai", "gemini"].includes(env.aiProvider) && Boolean(env.aiApiKey);
+  return ["openai", "gemini", "groq"].includes(env.aiProvider) && Boolean(env.aiApiKey);
 }
 
 async function requestTripContext(userContext) {
@@ -171,6 +177,7 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
     zone: place.zone,
     rating: place.rating,
     score: Math.round(place.score || 0),
+    preferredByUser: isPreferredPlace(place, userContext),
     featured: Boolean(place.featured),
     openNow: Boolean(place.openNow),
   }));
@@ -187,13 +194,18 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
     user: JSON.stringify({
       task: "Selecciona y organiza el itinerario final usando exclusivamente candidatePlaces.",
       rules: [
-        "Usa maximo 3 actividades por dia.",
+        `Usa maximo ${userContext.maxActivitiesTotal || 3} actividades en todo el itinerario.`,
         "No repitas googlePlaceId salvo que no haya suficientes candidatos.",
+        "Si preferredByUser es true, incluye ese lugar salvo que sea imposible armar una ruta coherente.",
+        userContext.lodgingNearPreferredPlace
+          ? "El usuario pidio hospedaje cerca del lugar preferido: incluye maximo un hotel/hospedaje relevante si existe candidato."
+          : null,
+        userContext.maxActivitiesTotal ? "Respeta estrictamente el limite de actividades indicado por el usuario." : null,
         "No favorezcas una zona que el usuario no pidio si hay candidatos relevantes para su intencion principal.",
         "Si hay ocasion especial, agrega al menos una actividad compatible cuando exista candidato relevante.",
         "Si hay temporada, favorece opciones compatibles sin desplazar la intencion principal.",
         "Mantén rutas por dia geograficamente coherentes.",
-      ],
+      ].filter(Boolean),
       expectedSchema: {
         days: [
           {
@@ -222,9 +234,24 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
   });
 }
 
+function isPreferredPlace(place, userContext) {
+  const preferredPlaces = Array.isArray(userContext.preferredPlaces) ? userContext.preferredPlaces : [];
+  if (preferredPlaces.length === 0) return false;
+
+  const placeName = normalizeText(place.name);
+  return preferredPlaces.some((preferredPlace) => {
+    const normalizedPreferredPlace = normalizeText(preferredPlace);
+    return placeName.includes(normalizedPreferredPlace) || normalizedPreferredPlace.includes(placeName);
+  });
+}
+
 async function requestAiJson({ system, user }) {
   if (env.aiProvider === "gemini") {
     return requestGeminiJson({ system, user });
+  }
+
+  if (env.aiProvider === "groq") {
+    return requestGroqJson({ system, user });
   }
 
   return requestOpenAiJson({ system, user });
@@ -256,6 +283,36 @@ async function requestOpenAiJson({ system, user }) {
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error("OpenAI response did not include content");
+
+  return JSON.parse(content);
+}
+
+async function requestGroqJson({ system, user }) {
+  const response = await fetch(GROQ_CHAT_COMPLETIONS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${env.aiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: env.aiModel,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq request failed: ${response.status} ${errorText.slice(0, 180)}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Groq response did not include content");
 
   return JSON.parse(content);
 }
@@ -383,19 +440,31 @@ function sanitizeText(value) {
   return typeof value === "string" ? value.trim().slice(0, 140) : "";
 }
 
-function sanitizeItineraryPlan(plan, rankedPlaces, expectedDays) {
+function sanitizeItineraryPlan(plan, rankedPlaces, userContext) {
   if (!plan || !Array.isArray(plan.days)) return null;
 
   const placeIds = new Set(rankedPlaces.map((place) => place.googlePlaceId));
   const usedPlaceIds = new Set();
-  const days = plan.days
-    .map((day, index) => ({
-      day: Number(day.day || index + 1),
+  const expectedDays = userContext.days;
+  let remainingActivities = getMaxActivitiesTotal(userContext);
+  const days = [];
+
+  for (const [index, day] of plan.days.entries()) {
+    const dayNumber = Number(day.day || index + 1);
+    if (dayNumber < 1 || dayNumber > expectedDays || remainingActivities <= 0) continue;
+
+    const activities = sanitizePlanActivities(day.activities, placeIds, usedPlaceIds, remainingActivities);
+    if (activities.length === 0) continue;
+
+    remainingActivities -= activities.length;
+    days.push({
+      day: dayNumber,
       zone: sanitizeText(day.zone),
-      activities: sanitizePlanActivities(day.activities, placeIds, usedPlaceIds),
-    }))
-    .filter((day) => day.day >= 1 && day.day <= expectedDays && day.activities.length > 0)
-    .slice(0, expectedDays);
+      activities,
+    });
+
+    if (days.length >= expectedDays) break;
+  }
 
   if (days.length === 0) return null;
 
@@ -405,7 +474,7 @@ function sanitizeItineraryPlan(plan, rankedPlaces, expectedDays) {
   };
 }
 
-function sanitizePlanActivities(activities, placeIds, usedPlaceIds) {
+function sanitizePlanActivities(activities, placeIds, usedPlaceIds, limit = 3) {
   if (!Array.isArray(activities)) return [];
 
   return activities
@@ -421,7 +490,13 @@ function sanitizePlanActivities(activities, placeIds, usedPlaceIds) {
       usedPlaceIds.add(activity.googlePlaceId);
       return true;
     })
-    .slice(0, 3);
+    .slice(0, limit);
+}
+
+function getMaxActivitiesTotal(userContext) {
+  const maxActivitiesTotal = Number(userContext.maxActivitiesTotal);
+  if (Number.isInteger(maxActivitiesTotal) && maxActivitiesTotal > 0) return maxActivitiesTotal;
+  return Math.min(Number(userContext.days || 1) * 3, 30);
 }
 
 function sanitizeTime(value, index) {

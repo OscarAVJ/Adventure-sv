@@ -58,14 +58,22 @@ function buildPlacesQueries(userContext) {
   const zone = userContext.preferredZone || "El Salvador";
   const message = String(userContext.message || "").trim();
   const interests = Array.isArray(userContext.interests) ? userContext.interests : [];
+  const preferredPlaces = Array.isArray(userContext.preferredPlaces) ? userContext.preferredPlaces : [];
   const aiQueries = Array.isArray(userContext.aiSearchQueries) ? userContext.aiSearchQueries : [];
+  const expandedInterests = expandInterestsForSearch(interests);
+  const nearbyHotelQueries = userContext.lodgingNearPreferredPlace
+    ? preferredPlaces.flatMap((place) => [`hotel cerca de ${place} ${zone}`, `hoteles cerca de ${place} ${zone}`])
+    : [];
 
   const queryCandidates = [
+    ...preferredPlaces.map((place) => `${place} ${zone}`),
+    ...preferredPlaces.map((place) => `${place} bar discoteca ${zone}`),
+    ...nearbyHotelQueries,
     ...aiQueries,
     message ? `${message} ${zone}` : null,
-    interests.length > 0 ? `${interests.join(" ")} lugares turisticos ${zone}` : null,
-    interests.length > 0 ? `${interests.join(" ")} atracciones turisticas ${zone}` : null,
-    ...interests.map((interest) => `${interest} lugares turisticos ${zone}`),
+    expandedInterests.length > 0 ? `${expandedInterests.join(" ")} ${zone}` : null,
+    expandedInterests.length > 0 ? `${expandedInterests.join(" ")} lugares recomendados ${zone}` : null,
+    ...expandedInterests.map((interest) => `${interest} ${zone}`),
     `centros turisticos ${zone}`,
   ];
 
@@ -110,6 +118,28 @@ function normalizeQuery(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function expandInterestsForSearch(interests) {
+  const expansions = {
+    vida_nocturna: ["bares", "discotecas", "vida nocturna", "night clubs"],
+    bebidas: ["bares", "cervecerias", "cocteles"],
+    musica: ["musica en vivo", "karaoke", "discotecas"],
+    comida: ["restaurantes", "comida local"],
+    cultura: ["museos", "centro historico", "sitios culturales"],
+    naturaleza: ["parques naturales", "volcanes", "lagos"],
+    compras: ["mercados", "artesanias", "centros comerciales"],
+    bienestar: ["spa", "termales", "masajes"],
+  };
+
+  return [
+    ...new Set(
+      interests.flatMap((interest) => {
+        const normalized = normalizeQuery(interest);
+        return [normalized, ...(expansions[normalized] || [])];
+      })
+    ),
+  ].filter(Boolean);
+}
+
 async function safeReadJson(response) {
   try {
     return await response.json();
@@ -120,10 +150,16 @@ async function safeReadJson(response) {
 
 function inferCategoriesFromGooglePlace(place, userContext) {
   const types = place.types || [];
-  const categories = new Set(userContext.interests);
+  const categories = new Set();
+  if (types.includes("bar") || types.includes("night_club")) categories.add("vida_nocturna");
+  if (types.includes("bar") || types.includes("liquor_store")) categories.add("bebidas");
+  if (types.includes("night_club")) categories.add("musica");
   if (types.includes("restaurant") || types.includes("food")) categories.add("comida");
+  if (types.includes("cafe")) categories.add("comida");
   if (types.includes("lodging")) categories.add("hospedaje");
   if (types.includes("tourist_attraction")) categories.add("tour");
+  if (types.includes("museum")) categories.add("cultura");
   if (types.includes("natural_feature") || types.includes("park")) categories.add("naturaleza");
+  if (types.includes("shopping_mall") || types.includes("market")) categories.add("compras");
   return [...categories];
 }

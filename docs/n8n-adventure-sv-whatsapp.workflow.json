@@ -3,6 +3,44 @@
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "GET",
+        "path": "adventure-sv-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "meta-verify-webhook",
+      "name": "Meta Webhook Verification",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 80],
+      "webhookId": "adventure-sv-whatsapp-verify"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $json.query ?? {};\nconst mode = query['hub.mode'];\nconst token = query['hub.verify_token'];\nconst challenge = query['hub.challenge'];\n\nif (mode !== 'subscribe' || token !== 'Adventure-sv' || !challenge) {\n  throw new Error('Invalid Meta webhook verification request');\n}\n\nreturn [{ json: { challenge } }];"
+      },
+      "id": "meta-verify-code",
+      "name": "Validate Meta Verification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 80]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.challenge}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "meta-verify-response",
+      "name": "Return Meta Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 80]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "adventure-sv-whatsapp",
         "responseMode": "responseNode",
@@ -54,6 +92,28 @@
     }
   ],
   "connections": {
+    "Meta Webhook Verification": {
+      "main": [
+        [
+          {
+            "node": "Validate Meta Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Meta Verification": {
+      "main": [
+        [
+          {
+            "node": "Return Meta Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "WhatsApp Inbound Webhook": {
       "main": [
         [
@@ -93,5 +153,5 @@
   },
   "pinData": {},
   "active": false,
-  "versionId": "adventure-sv-whatsapp-v1"
+  "versionId": "adventure-sv-whatsapp-v2"
 }

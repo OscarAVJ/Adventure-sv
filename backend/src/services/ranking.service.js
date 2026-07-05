@@ -20,7 +20,9 @@ export function rankPlaces({ places, userContext, promotedPlaces = [], season, o
 
 export function scorePlace({ place, userContext, promotedPlace, season, occasionRule }) {
   const relevanceScore = getRelevanceScore(place, userContext);
-  if (relevanceScore <= 0) return 0;
+  const preferredPlaceBoost = getPreferredPlaceBoost(place, userContext);
+  const requestedLodgingBoost = getRequestedLodgingBoost(place, userContext);
+  if (relevanceScore + preferredPlaceBoost + requestedLodgingBoost <= 0) return 0;
 
   const ratingScore = (place.rating || 0) * 10;
   const logisticsScore = getLogisticsScore(place, userContext);
@@ -28,7 +30,7 @@ export function scorePlace({ place, userContext, promotedPlace, season, occasion
   const seasonalBoost = getSeasonalBoost(place, season);
   const occasionBoost = getOccasionBoost(place, occasionRule);
 
-  return relevanceScore + ratingScore + logisticsScore + promotedBoost + seasonalBoost + occasionBoost;
+  return relevanceScore + ratingScore + preferredPlaceBoost + requestedLodgingBoost + logisticsScore + promotedBoost + seasonalBoost + occasionBoost;
 }
 
 function getRelevanceScore(place, userContext) {
@@ -42,6 +44,24 @@ function getRelevanceScore(place, userContext) {
 function getLogisticsScore(place, userContext) {
   if (!userContext.preferredZone) return 0;
   return normalizeText(place.zone) === normalizeText(userContext.preferredZone) ? 14 : 0;
+}
+
+function getPreferredPlaceBoost(place, userContext) {
+  const preferredPlaces = Array.isArray(userContext.preferredPlaces) ? userContext.preferredPlaces : [];
+  if (preferredPlaces.length === 0) return 0;
+
+  const placeName = normalizeText(place.name);
+  const matchedPreferredPlace = preferredPlaces.find((preferredPlace) => {
+    const normalizedPreferredPlace = normalizeText(preferredPlace);
+    return placeName.includes(normalizedPreferredPlace) || normalizedPreferredPlace.includes(placeName);
+  });
+
+  return matchedPreferredPlace ? 120 : 0;
+}
+
+function getRequestedLodgingBoost(place, userContext) {
+  if (!userContext.lodgingNearPreferredPlace) return 0;
+  return (place.categories || []).includes("hospedaje") ? 70 : 0;
 }
 
 function getPromotedBoost(place, promotedPlace, userContext) {

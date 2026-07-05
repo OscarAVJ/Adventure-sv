@@ -42,9 +42,9 @@ export async function generateItinerary(input) {
     );
   }
 
-  const selectedPlanByDay = buildSelectedPlanByDay({ aiPlan, candidatePlaces, userContext });
-  const days = await buildDays({ userContext, selectedPlanByDay, season, occasionRule });
-  const fitted = fitActivitiesToBudget(days, userContext.budgetUsd);
+  const selectedPlanByDay = buildSelectedPlanByDay({ aiPlan, rankedPlaces, userContext });
+  const days = await buildDays({ userContext, selectedPlanByDay, rankedPlaces, season, occasionRule });
+  const fitted = fitActivitiesToBudget(days, userContext.budgetUsd, userContext);
   const adjustments = buildAdjustments({
     season,
     occasionRule,
@@ -88,7 +88,7 @@ async function findPromotedPlaces(candidatePlaces) {
   return PromotedPlace.find({ googlePlaceId: { $in: placeIds }, campaignStatus: "active" }).lean();
 }
 
-async function buildDays({ userContext, selectedPlanByDay, season, occasionRule }) {
+async function buildDays({ userContext, selectedPlanByDay, rankedPlaces, season, occasionRule }) {
   const days = [];
 
   for (let dayNumber = 1; dayNumber <= userContext.days; dayNumber += 1) {
@@ -109,6 +109,7 @@ async function buildDays({ userContext, selectedPlanByDay, season, occasionRule 
         occasionRule,
       })
     );
+    const alternatives = buildDayAlternatives({ dayPlanItems, rankedPlaces, userContext });
 
     days.push({
       day: dayNumber,
@@ -121,6 +122,7 @@ async function buildDays({ userContext, selectedPlanByDay, season, occasionRule 
       }),
       costUsd: activities.reduce((sum, activity) => sum + activity.costUsd, 0),
       activities,
+      alternatives,
     });
   }
 
@@ -133,8 +135,10 @@ async function buildDays({ userContext, selectedPlanByDay, season, occasionRule 
 function buildActivity({ place, time, aiReason, aiNotes, userContext, season, occasionRule }) {
   const seasonal = Boolean(season?.preferredCategories?.some((category) => place.categories.includes(category)));
   const occasionMatch = Boolean(occasionRule?.preferredCategories?.some((category) => place.categories.includes(category)));
+  const preferredByUser = isPreferredPlace(place, userContext);
   const featured = Boolean(place.featured);
   const badges = [
+    preferredByUser ? "Solicitado por el viajero" : null,
     place.openNow ? "Abierto ahora" : null,
     featured ? "Recomendado" : null,
     seasonal ? `Ideal en ${season.label}` : null,
@@ -152,15 +156,17 @@ function buildActivity({ place, time, aiReason, aiNotes, userContext, season, oc
     featured,
     seasonal,
     occasionMatch,
+    preferredByUser,
     badges,
-    matchReasons: buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, aiReason }),
+    matchReasons: buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }),
     notes: aiNotes || buildActivityNotes(place, time),
   };
 }
 
-function buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, aiReason }) {
+function buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }) {
   const reasons = [];
   if (aiReason) reasons.push(aiReason);
+  if (preferredByUser) reasons.push("Incluido porque el viajero lo menciono como favorito");
   const matchedInterest = place.categories.find((category) => userContext.interests.includes(category));
   if (matchedInterest) reasons.push(`Coincide con interes de ${matchedInterest}`);
   if (userContext.preferredZone && place.zone === userContext.preferredZone) reasons.push("Cerca de la zona preferida");
@@ -170,16 +176,35 @@ function buildMatchReasons({ place, userContext, featured, seasonal, occasionMat
   return reasons;
 }
 
+function isPreferredPlace(place, userContext) {
+  const preferredPlaces = Array.isArray(userContext.preferredPlaces) ? userContext.preferredPlaces : [];
+  if (preferredPlaces.length === 0) return false;
+
+  const placeName = normalizeComparableText(place.name);
+  return preferredPlaces.some((preferredPlace) => {
+    const normalizedPreferredPlace = normalizeComparableText(preferredPlace);
+    return placeName.includes(normalizedPreferredPlace) || normalizedPreferredPlace.includes(placeName);
+  });
+}
+
+function normalizeComparableText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function buildActivityNotes(place, time) {
   if (time === "10:00") return `Actividad principal del dia en ${place.zone}.`;
   if (time === "13:00") return "Pausa recomendada para comer o descansar sin mover demasiado la ruta.";
   return "Cierre del dia pensado para una experiencia tranquila y facil de ejecutar.";
 }
 
-function buildSelectedPlanByDay({ aiPlan, candidatePlaces, userContext }) {
-  const placeById = new Map(candidatePlaces.map((place) => [place.googlePlaceId, place]));
-
+function buildSelectedPlanByDay({ aiPlan, rankedPlaces, userContext }) {
+  const placeById = new Map(rankedPlaces.map((place) => [place.googlePlaceId, place]));
   const selectedDays = Array.from({ length: userContext.days }, () => []);
+  const usedPlaceIds = new Set();
 
   for (const day of aiPlan.days) {
     const dayIndex = day.day - 1;
@@ -193,10 +218,61 @@ function buildSelectedPlanByDay({ aiPlan, candidatePlaces, userContext }) {
         notes: activity.notes,
         zone: day.zone,
       }))
-      .filter((item) => item.place);
+      .filter((item) => {
+        if (!item.place || usedPlaceIds.has(item.place.googlePlaceId)) return false;
+        usedPlaceIds.add(item.place.googlePlaceId);
+        return true;
+      });
   }
 
+  fillSparseDays({ selectedDays, rankedPlaces, usedPlaceIds, userContext });
   return selectedDays;
+}
+
+function fillSparseDays({ selectedDays, rankedPlaces, usedPlaceIds, userContext }) {
+  const maxActivitiesTotal = Number(userContext.maxActivitiesTotal);
+  const hasStrictTotal = Number.isInteger(maxActivitiesTotal) && maxActivitiesTotal > 0;
+  const targetPerDay = hasStrictTotal ? 1 : 3;
+  const totalLimit = hasStrictTotal ? maxActivitiesTotal : userContext.days * targetPerDay;
+  let totalSelected = selectedDays.reduce((sum, day) => sum + day.length, 0);
+
+  for (let dayIndex = 0; dayIndex < selectedDays.length && totalSelected < totalLimit; dayIndex += 1) {
+    while (selectedDays[dayIndex].length < targetPerDay && totalSelected < totalLimit) {
+      const nextPlace = rankedPlaces.find((place) => !usedPlaceIds.has(place.googlePlaceId));
+      if (!nextPlace) return;
+
+      usedPlaceIds.add(nextPlace.googlePlaceId);
+      selectedDays[dayIndex].push({
+        place: nextPlace,
+        time: DAY_TIMES[selectedDays[dayIndex].length] || "17:00",
+        reason: "Opcion agregada para completar el dia con una recomendacion real disponible.",
+        notes: buildActivityNotes(nextPlace, DAY_TIMES[selectedDays[dayIndex].length] || "17:00"),
+        zone: nextPlace.zone,
+      });
+      totalSelected += 1;
+    }
+  }
+}
+
+function buildDayAlternatives({ dayPlanItems, rankedPlaces, userContext }) {
+  const selectedIds = new Set(dayPlanItems.map((item) => item.place?.googlePlaceId).filter(Boolean));
+  return rankedPlaces
+    .filter((place) => !selectedIds.has(place.googlePlaceId))
+    .filter((place) => isRelevantAlternative(place, userContext))
+    .slice(0, 3)
+    .map((place) => ({
+      name: place.name,
+      type: place.type,
+      zone: place.zone,
+      estimatedCostUsd: estimateActivityCost(place, userContext.travelers),
+      reason: "Alternativa compatible si queres cambiar el ritmo del dia.",
+      googlePlaceId: place.googlePlaceId,
+    }));
+}
+
+function isRelevantAlternative(place, userContext) {
+  const placeText = normalizeComparableText(`${place.name} ${place.type} ${place.zone}`);
+  return userContext.interests.some((interest) => place.categories?.includes(interest) || placeText.includes(normalizeComparableText(interest)));
 }
 
 function addDays(dateValue, amount) {
