@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 import { notFoundMiddleware } from "./middleware/notFound.middleware.js";
 import itineraryRoutes from "./routes/itinerary.routes.js";
+import travelerRoutes from "./routes/traveler.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 
 export function createApp() {
@@ -17,6 +18,7 @@ export function createApp() {
   });
 
   app.use("/api/itineraries", itineraryRoutes);
+  app.use("/api/travelers", travelerRoutes);
   app.use("/api/webhooks", webhookRoutes);
 
   app.use(notFoundMiddleware);

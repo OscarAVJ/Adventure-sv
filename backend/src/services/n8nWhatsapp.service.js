@@ -1,6 +1,12 @@
 import { parseWhatsappTripRequestWithAi } from "./ai.service.js";
 import { extractInterests } from "./intent.service.js";
 import { generateItinerary } from "./itinerary.service.js";
+import {
+  applyTravelerProfileDefaults,
+  buildReturningTravelerReply,
+  findTravelerProfile,
+  isReuseLastTripMessage,
+} from "./travelerProfile.service.js";
 
 const REQUIRED_FIELDS = [
   { key: "budgetUsd", label: "presupuesto aproximado en dolares" },
@@ -31,14 +37,18 @@ export async function handleN8nChatMessage(body, { channel = body.channel || "wh
   }
 
   const aiFields = await parseWhatsappTripRequestWithAi({ message, currentDate });
-  const requestPayload = buildItineraryPayload({ body, aiFields, message, phone, channel });
+  const profile = await findTravelerProfile(phone);
+  const reuseProfile = isReuseLastTripMessage(message);
+  const requestPayload = applyTravelerProfileDefaults(buildItineraryPayload({ body, aiFields, message, phone, channel }), profile, {
+    reuseProfile,
+  });
   const missingFields = getMissingFields(requestPayload);
 
   if (missingFields.length > 0) {
     return buildNeedsInputResponse({
       phone,
       missingFields,
-      replyText: buildMissingInfoReply(missingFields),
+      replyText: buildMissingInfoReply(missingFields, profile),
     });
   }
 
@@ -102,8 +112,10 @@ function getMissingFields(payload) {
   );
 }
 
-function buildMissingInfoReply(missingFields) {
+function buildMissingInfoReply(missingFields, profile = null) {
+  const returningIntro = profile ? [buildReturningTravelerReply(profile), ""] : [];
   return [
+    ...returningIntro,
     "Para armarte una ruta real necesito estos datos:",
     ...missingFields.map((field) => `- ${field}`),
     "Ejemplo: Quiero 3 dias desde 2026-07-24, somos 4 personas, presupuesto $600, nos gusta cultura y naturaleza.",

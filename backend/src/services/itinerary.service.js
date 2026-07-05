@@ -10,6 +10,7 @@ import { normalizeTripInput } from "./intent.service.js";
 import { findOccasionRule } from "./occasion.service.js";
 import { rankPlaces } from "./ranking.service.js";
 import { findActiveSeason } from "./season.service.js";
+import { upsertTravelerProfile } from "./travelerProfile.service.js";
 import { formatReplyText } from "./whatsappFormatter.service.js";
 import { getWeatherSummary } from "./weather.service.js";
 import { AppError } from "../utils/AppError.js";
@@ -76,6 +77,7 @@ export async function generateItinerary(input) {
   const replyText = formatReplyText({ itinerary, occasionRule, season });
 
   await saveConversationTurn({ userContext, replyText, itineraryId: savedItinerary?._id });
+  await upsertTravelerProfile(userContext);
 
   return {
     success: true,
