@@ -36,7 +36,8 @@ phone=telegram:123456789
 1. `Telegram Trigger`
 2. `Code` para normalizar payload
 3. `HTTP Request` hacia Adventure-sv
-4. `Telegram` para enviar respuesta
+4. `Code` para preparar y partir respuesta larga
+5. `Telegram` para enviar respuesta
 
 ## Code node: Normalize Telegram Payload
 
@@ -79,10 +80,43 @@ Activa la opcion para incluir datos de entrada en la respuesta si tu version de 
 
 ## Telegram Send Message
 
+Agrega un `Code` node entre `HTTP Request` y `Telegram Send Message`.
+
+Nombre recomendado:
+
 ```txt
-Chat ID: {{$node["Normalize Telegram Payload"].json.chatId}}
-Text:
-{{$json.replyText || ($json.missingFields?.length ? 'Para armarte una ruta real necesito estos datos:\n- ' + $json.missingFields.join('\n- ') + '\n\nEjemplo: Quiero 3 dias desde 2026-07-24, somos 4 personas, presupuesto $600, nos gusta cultura y naturaleza.' : 'No pude generar una respuesta. Intenta de nuevo con fecha, dias, viajeros y presupuesto.')}}
+Prepare Telegram Response
+```
+
+Codigo:
+
+```js
+const chatId = $node["Normalize Telegram Payload"].json.chatId;
+const fallbackText = "No pude generar una respuesta. Intenta de nuevo con fecha, dias, viajeros y presupuesto.";
+const missingFieldsText = $json.missingFields?.length
+  ? `Para armarte una ruta real necesito estos datos:\n- ${$json.missingFields.join("\n- ")}\n\nEjemplo: Quiero 3 dias desde 2026-07-24, somos 4 personas, presupuesto $600, nos gusta cultura y naturaleza.`
+  : "";
+const text = $json.replyText || missingFieldsText || fallbackText;
+const maxLength = 3500;
+const chunks = [];
+
+for (let index = 0; index < text.length; index += maxLength) {
+  chunks.push(text.slice(index, index + maxLength));
+}
+
+return chunks.map((chunk, index) => ({
+  json: {
+    chatId,
+    text: chunks.length > 1 ? `${chunk}\n\n(${index + 1}/${chunks.length})` : chunk,
+  },
+}));
+```
+
+Luego configura `Telegram Send Message` asi:
+
+```txt
+Chat ID: {{$json.chatId}}
+Text: {{$json.text}}
 ```
 
 Si el texto queda demasiado largo para Telegram, divide `replyText` en varios mensajes o limita la respuesta desde el backend.
