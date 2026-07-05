@@ -16,6 +16,11 @@ const conversationSchema = new mongoose.Schema(
       enum: ["active", "closed"],
       default: "active",
     },
+    lang: {
+      type: String,
+      enum: ["es", "en"],
+      default: "es",
+    },
     messages: [
       {
         role: {

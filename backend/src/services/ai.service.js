@@ -87,6 +87,9 @@ export async function buildItinerarySummary({ userContext, season, occasionRule,
   const interestText = userContext.interests.join(", ");
   const occasionText = occasionRule ? ` para ${occasionRule.label.toLowerCase()}` : "";
   const seasonText = season ? ` en temporada de ${season.label.toLowerCase()}` : "";
+  if (userContext.lang === "en") {
+    return `${userContext.days} days focused on ${interestText || "travel"}${occasionRule ? ` for ${occasionRule.label.toLowerCase()}` : ""}.`;
+  }
   return `${userContext.days} dias de ${interestText}${occasionText}${seasonText}.`;
 }
 
@@ -142,10 +145,12 @@ async function requestTripContext(userContext) {
 }
 
 async function requestItinerarySummary({ userContext, season, occasionRule, days }) {
+  const langInstruction = getLanguageInstruction(userContext.lang);
   const result = await requestAiJson({
     system: [
       "Eres un redactor de producto para Adventure-sv.",
-      "Resume itinerarios turisticos de El Salvador en espanol claro.",
+      "Resume itinerarios turisticos de El Salvador de forma clara.",
+      langInstruction,
       "Devuelve solo JSON valido con la propiedad summary.",
       "No prometas reservas, seguridad garantizada, clima garantizado ni precios exactos.",
     ].join(" "),
@@ -169,6 +174,7 @@ async function requestItinerarySummary({ userContext, season, occasionRule, days
 }
 
 async function requestItineraryPlan({ userContext, season, occasionRule, rankedPlaces }) {
+  const langInstruction = getLanguageInstruction(userContext.lang);
   const candidates = rankedPlaces.slice(0, 30).map((place) => ({
     googlePlaceId: place.googlePlaceId,
     name: place.name,
@@ -186,6 +192,7 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
   return requestAiJson({
     system: [
       "Eres el planificador principal de itinerarios de Adventure-sv para El Salvador.",
+      langInstruction,
       "Debes seleccionar lugares SOLO desde la lista de candidatos recibida.",
       "Nunca inventes googlePlaceId, nombres, precios, zonas ni lugares.",
       "Arma una ruta ejecutable, agrupada por cercania, presupuesto, intereses, temporada y ocasion.",
@@ -234,6 +241,12 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
       candidatePlaces: candidates,
     }),
   });
+}
+
+function getLanguageInstruction(lang = "es") {
+  return lang === "en"
+    ? "Write all user-facing text in English."
+    : "Escribe todo texto visible para el usuario en espanol claro.";
 }
 
 function isPreferredPlace(place, userContext) {

@@ -8,6 +8,11 @@ const itinerarySchema = new mongoose.Schema(
       required: true,
     },
     phone: String,
+    lang: {
+      type: String,
+      enum: ["es", "en"],
+      default: "es",
+    },
     request: Object,
     summary: String,
     context: Object,

@@ -1,5 +1,7 @@
+import { Conversation } from "../models/Conversation.js";
 import { parseWhatsappTripRequestWithAi } from "./ai.service.js";
 import { extractInterests } from "./intent.service.js";
+import { resolveConversationLanguage } from "./language.service.js";
 import { generateItinerary } from "./itinerary.service.js";
 import {
   applyTravelerProfileDefaults,
@@ -9,10 +11,10 @@ import {
 } from "./travelerProfile.service.js";
 
 const REQUIRED_FIELDS = [
-  { key: "budgetUsd", label: "presupuesto aproximado en dolares" },
-  { key: "days", label: "cantidad de dias" },
-  { key: "startDate", label: "fecha de inicio" },
-  { key: "travelers", label: "cantidad de viajeros" },
+  { key: "budgetUsd", labels: { es: "presupuesto aproximado en dolares", en: "approximate budget in dollars" } },
+  { key: "days", labels: { es: "cantidad de dias", en: "number of days" } },
+  { key: "startDate", labels: { es: "fecha de inicio", en: "start date" } },
+  { key: "travelers", labels: { es: "cantidad de viajeros", en: "number of travelers" } },
 ];
 
 export async function handleN8nWhatsappMessage(body) {
@@ -27,35 +29,43 @@ export async function handleN8nChatMessage(body, { channel = body.channel || "wh
   const message = extractChatMessage(body);
   const phone = extractChatIdentifier(body, channel);
   const currentDate = new Date().toISOString().slice(0, 10);
+  const lang = await resolveConversationLanguage({ phone, channel, message });
 
   if (!message) {
-    return buildNeedsInputResponse({
+    const response = buildNeedsInputResponse({
       phone,
       missingFields: ["mensaje del viajero"],
-      replyText: "Contame que tipo de viaje queres hacer, fecha, dias, viajeros y presupuesto aproximado.",
+      replyText:
+        lang === "en"
+          ? "Tell me what kind of trip you want, plus date, days, travelers, and approximate budget."
+          : "Contame que tipo de viaje queres hacer, fecha, dias, viajeros y presupuesto aproximado.",
     });
+    await saveNeedsInputTurn({ phone, channel, lang, message, replyText: response.replyText });
+    return response;
   }
 
   const aiFields = await parseWhatsappTripRequestWithAi({ message, currentDate });
   const profile = await findTravelerProfile(phone);
   const reuseProfile = isReuseLastTripMessage(message);
-  const requestPayload = applyTravelerProfileDefaults(buildItineraryPayload({ body, aiFields, message, phone, channel }), profile, {
+  const requestPayload = applyTravelerProfileDefaults(buildItineraryPayload({ body, aiFields, message, phone, channel, lang }), profile, {
     reuseProfile,
   });
-  const missingFields = getMissingFields(requestPayload);
+  const missingFields = getMissingFields(requestPayload, lang);
 
   if (missingFields.length > 0) {
-    return buildNeedsInputResponse({
+    const response = buildNeedsInputResponse({
       phone,
       missingFields,
-      replyText: buildMissingInfoReply(missingFields, profile),
+      replyText: buildMissingInfoReply(missingFields, profile, lang),
     });
+    await saveNeedsInputTurn({ phone, channel, lang, message, replyText: response.replyText });
+    return response;
   }
 
   return generateItinerary(requestPayload);
 }
 
-function buildItineraryPayload({ body, aiFields, message, phone, channel }) {
+function buildItineraryPayload({ body, aiFields, message, phone, channel, lang }) {
   const fallbackInterests = extractInterests(message);
 
   return {
@@ -70,6 +80,7 @@ function buildItineraryPayload({ body, aiFields, message, phone, channel }) {
     travelers: pickValue(body.travelers, aiFields.travelers),
     conversationId: body.conversationId || null,
     phone,
+    lang,
   };
 }
 
@@ -106,14 +117,23 @@ function extractChatIdentifier(body, channel) {
   return String(identifier).startsWith(`${channel}:`) ? String(identifier) : `${channel}:${identifier}`;
 }
 
-function getMissingFields(payload) {
+function getMissingFields(payload, lang = "es") {
   return REQUIRED_FIELDS.filter(({ key }) => payload[key] === undefined || payload[key] === null || payload[key] === "").map(
-    ({ label }) => label
+    ({ labels }) => labels[lang] || labels.es
   );
 }
 
-function buildMissingInfoReply(missingFields, profile = null) {
-  const returningIntro = profile ? [buildReturningTravelerReply(profile), ""] : [];
+function buildMissingInfoReply(missingFields, profile = null, lang = "es") {
+  const returningIntro = profile ? [buildReturningTravelerReply(profile, lang), ""] : [];
+  if (lang === "en") {
+    return [
+      ...returningIntro,
+      "To build a real route, I still need:",
+      ...missingFields.map((field) => `- ${field}`),
+      "Example: I want 3 days starting 2026-07-24, we are 4 people, budget $600, we like culture and nature.",
+    ].join("\n");
+  }
+
   return [
     ...returningIntro,
     "Para armarte una ruta real necesito estos datos:",
@@ -131,6 +151,25 @@ function buildNeedsInputResponse({ phone, missingFields, replyText }) {
     replyText,
     itinerary: null,
   };
+}
+
+async function saveNeedsInputTurn({ phone, channel, lang, message, replyText }) {
+  if (!phone || Conversation.db.readyState !== 1 || !["whatsapp", "telegram"].includes(channel)) return;
+
+  await Conversation.findOneAndUpdate(
+    { phone, channel, status: "active" },
+    {
+      $setOnInsert: { channel, phone, status: "active" },
+      $set: { lang },
+      $push: {
+        messages: [
+          message ? { role: "user", content: message } : null,
+          { role: "assistant", content: replyText },
+        ].filter(Boolean),
+      },
+    },
+    { upsert: true, new: true }
+  );
 }
 
 function pickValue(primary, secondary) {

@@ -67,11 +67,21 @@ export async function deleteTravelerProfile(phone) {
 
 export function isReuseLastTripMessage(message) {
   const normalized = normalizeText(message);
-  return /\b(igual|mismo|misma)\s+que\s+la\s+(ultima|pasada|vez\s+pasada)\b/.test(normalized) || /\brepeti(?:r)?\s+(?:lo\s+)?(?:ultimo|anterior)\b/.test(normalized);
+  return (
+    /\b(igual|mismo|misma)\s+que\s+la\s+(ultima|pasada|vez\s+pasada)\b/.test(normalized) ||
+    /\brepeti(?:r)?\s+(?:lo\s+)?(?:ultimo|anterior)\b/.test(normalized) ||
+    /\b(same|like)\s+as\s+(last\s+time|before|the\s+last\s+one)\b/.test(normalized) ||
+    /\brepeat\s+(the\s+)?(last|previous)\b/.test(normalized)
+  );
 }
 
-export function buildReturningTravelerReply(profile) {
+export function buildReturningTravelerReply(profile, lang = "es") {
   const interest = profile?.preferredInterests?.[0];
+  if (lang === "en") {
+    const interestText = interest ? ` I saw that last time you liked ${interest}.` : "";
+    return `Welcome back!${interestText} Tell me what you are looking for this time, or say "same as last time" and confirm the date.`;
+  }
+
   const interestText = interest ? ` Vi que la ultima vez te gusto ${interest}.` : "";
   return `Hola de nuevo!${interestText} Contame que estas buscando esta vez, o decime "igual que la ultima vez" y confirmame la fecha.`;
 }

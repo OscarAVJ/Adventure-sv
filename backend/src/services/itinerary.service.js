@@ -58,6 +58,7 @@ export async function generateItinerary(input) {
   const summary = await buildItinerarySummary({ userContext, season, occasionRule, days: fitted.days });
 
   const itineraryPayload = {
+    lang: userContext.lang || "es",
     summary,
     context: {
       season: season ? { key: season.key, label: season.label } : null,
@@ -125,8 +126,11 @@ export async function rerollItineraryActivity({ itineraryId, activityId, reason 
   const nextActivity = buildActivity({
     place: replacement,
     time: currentActivity.time,
-    aiReason: buildRerollReason(reason),
-    aiNotes: "Actividad reemplazada manteniendo la zona, categoria y presupuesto del dia.",
+    aiReason: buildRerollReason(reason, userContext.lang),
+    aiNotes:
+      userContext.lang === "en"
+        ? "Activity replaced while keeping the day area, category, and budget in mind."
+        : "Actividad reemplazada manteniendo la zona, categoria y presupuesto del dia.",
     userContext,
     season,
     occasionRule,
@@ -204,17 +208,18 @@ async function buildDays({ userContext, selectedPlanByDay, rankedPlaces, season,
 }
 
 function buildActivity({ place, time, aiReason, aiNotes, userContext, season, occasionRule }) {
+  const lang = userContext.lang || "es";
   const seasonal = Boolean(season?.preferredCategories?.some((category) => place.categories.includes(category)));
   const occasionMatch = Boolean(occasionRule?.preferredCategories?.some((category) => place.categories.includes(category)));
   const preferredByUser = isPreferredPlace(place, userContext);
   const featured = Boolean(place.featured);
   const badges = [
-    preferredByUser ? "Solicitado por el viajero" : null,
-    place.openNow ? "Abierto ahora" : null,
-    featured ? "Recomendado" : null,
-    seasonal ? `Ideal en ${season.label}` : null,
-    occasionMatch ? `Ideal para ${occasionRule.label.toLowerCase()}` : null,
-    "Dentro del presupuesto",
+    preferredByUser ? translateItineraryText("requestedByTraveler", lang) : null,
+    place.openNow ? translateItineraryText("openNow", lang) : null,
+    featured ? translateItineraryText("recommended", lang) : null,
+    seasonal ? translateItineraryText("seasonal", lang, { label: season.label }) : null,
+    occasionMatch ? translateItineraryText("occasionMatch", lang, { label: occasionRule.label }) : null,
+    translateItineraryText("withinBudget", lang),
   ].filter(Boolean);
 
   return {
@@ -236,7 +241,7 @@ function buildActivity({ place, time, aiReason, aiNotes, userContext, season, oc
     preferredByUser,
     badges,
     matchReasons: buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }),
-    notes: aiNotes || buildActivityNotes(place, time),
+    notes: aiNotes || buildActivityNotes(place, time, lang),
   };
 }
 
@@ -265,7 +270,17 @@ function buildRerollUserContext({ itinerary, day, currentActivity, reason }) {
   };
 }
 
-function buildRerollReason(reason) {
+function buildRerollReason(reason, lang = "es") {
+  if (lang === "en") {
+    const reasons = {
+      closed: "Replacement requested because the previous place was closed.",
+      rain: "Replacement requested due to rain conditions.",
+      disliked: "Replacement requested based on traveler preference.",
+    };
+
+    return reasons[reason] || "Replacement requested by the traveler.";
+  }
+
   const reasons = {
     closed: "Reemplazo solicitado porque el lugar anterior estaba cerrado.",
     rain: "Reemplazo solicitado por condicion de lluvia.",
@@ -276,15 +291,16 @@ function buildRerollReason(reason) {
 }
 
 function buildMatchReasons({ place, userContext, featured, seasonal, occasionMatch, preferredByUser, aiReason }) {
+  const lang = userContext.lang || "es";
   const reasons = [];
   if (aiReason) reasons.push(aiReason);
-  if (preferredByUser) reasons.push("Incluido porque el viajero lo menciono como favorito");
+  if (preferredByUser) reasons.push(translateItineraryText("preferredReason", lang));
   const matchedInterest = place.categories.find((category) => userContext.interests.includes(category));
-  if (matchedInterest) reasons.push(`Coincide con interes de ${matchedInterest}`);
-  if (userContext.preferredZone && place.zone === userContext.preferredZone) reasons.push("Cerca de la zona preferida");
-  if (featured) reasons.push("Negocio priorizado relevante");
-  if (seasonal) reasons.push("Encaja con la temporada del viaje");
-  if (occasionMatch) reasons.push("Encaja con la ocasion especial");
+  if (matchedInterest) reasons.push(translateItineraryText("interestMatch", lang, { label: matchedInterest }));
+  if (userContext.preferredZone && place.zone === userContext.preferredZone) reasons.push(translateItineraryText("nearPreferredZone", lang));
+  if (featured) reasons.push(translateItineraryText("featuredReason", lang));
+  if (seasonal) reasons.push(translateItineraryText("seasonReason", lang));
+  if (occasionMatch) reasons.push(translateItineraryText("occasionReason", lang));
   return reasons;
 }
 
@@ -307,10 +323,35 @@ function normalizeComparableText(value) {
     .trim();
 }
 
-function buildActivityNotes(place, time) {
+function buildActivityNotes(place, time, lang = "es") {
+  if (lang === "en") {
+    if (time === "10:00") return `Main activity of the day in ${place.zone}.`;
+    if (time === "13:00") return "Recommended pause for lunch or rest without moving too far from the route.";
+    return "Easy end-of-day stop for a calm and practical experience.";
+  }
+
   if (time === "10:00") return `Actividad principal del dia en ${place.zone}.`;
   if (time === "13:00") return "Pausa recomendada para comer o descansar sin mover demasiado la ruta.";
   return "Cierre del dia pensado para una experiencia tranquila y facil de ejecutar.";
+}
+
+function translateItineraryText(key, lang = "es", values = {}) {
+  const translations = {
+    requestedByTraveler: { es: "Solicitado por el viajero", en: "Requested by the traveler" },
+    openNow: { es: "Abierto ahora", en: "Open now" },
+    recommended: { es: "Recomendado", en: "Recommended" },
+    seasonal: { es: `Ideal en ${values.label}`, en: `Great for ${values.label} season` },
+    occasionMatch: { es: `Ideal para ${String(values.label || "").toLowerCase()}`, en: `Good for ${String(values.label || "").toLowerCase()}` },
+    withinBudget: { es: "Dentro del presupuesto", en: "Within budget" },
+    preferredReason: { es: "Incluido porque el viajero lo menciono como favorito", en: "Included because the traveler mentioned it as a favorite" },
+    interestMatch: { es: `Coincide con interes de ${values.label}`, en: `Matches interest in ${values.label}` },
+    nearPreferredZone: { es: "Cerca de la zona preferida", en: "Near the preferred area" },
+    featuredReason: { es: "Negocio priorizado relevante", en: "Relevant prioritized business" },
+    seasonReason: { es: "Encaja con la temporada del viaje", en: "Fits the travel season" },
+    occasionReason: { es: "Encaja con la ocasion especial", en: "Fits the special occasion" },
+  };
+
+  return translations[key]?.[lang] || translations[key]?.es || "";
 }
 
 function buildSelectedPlanByDay({ aiPlan, rankedPlaces, userContext }) {
@@ -357,8 +398,11 @@ function fillSparseDays({ selectedDays, rankedPlaces, usedPlaceIds, userContext 
       selectedDays[dayIndex].push({
         place: nextPlace,
         time: DAY_TIMES[selectedDays[dayIndex].length] || "17:00",
-        reason: "Opcion agregada para completar el dia con una recomendacion real disponible.",
-        notes: buildActivityNotes(nextPlace, DAY_TIMES[selectedDays[dayIndex].length] || "17:00"),
+        reason:
+          userContext.lang === "en"
+            ? "Option added to complete the day with a real available recommendation."
+            : "Opcion agregada para completar el dia con una recomendacion real disponible.",
+        notes: buildActivityNotes(nextPlace, DAY_TIMES[selectedDays[dayIndex].length] || "17:00", userContext.lang),
         zone: nextPlace.zone,
       });
       totalSelected += 1;
@@ -438,7 +482,7 @@ async function saveConversationTurn({ userContext, replyText, itineraryId }) {
     query,
     {
       $setOnInsert: { channel: userContext.channel, phone: userContext.phone, status: "active" },
-      $set: { lastItineraryId: itineraryId },
+      $set: { lastItineraryId: itineraryId, lang: userContext.lang || "es" },
       $push: {
         messages: [
           { role: "user", content: userContext.message },

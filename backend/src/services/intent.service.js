@@ -1,35 +1,35 @@
 const INTEREST_KEYWORDS = [
-  { key: "playa", words: ["playa", "mar", "costa", "tunco", "zonte", "sunzal"] },
-  { key: "surf", words: ["surf", "surfear", "olas"] },
-  { key: "cultura", words: ["cultura", "museo", "historia", "colonial", "ruinas"] },
-  { key: "naturaleza", words: ["naturaleza", "volcan", "cerro", "lago", "cascada", "parque"] },
-  { key: "hospedaje", words: ["hotel", "hostal", "hospedaje", "dormir"] },
-  { key: "comida", words: ["comida", "comer", "restaurante", "pupusa", "pupusas", "cafe", "cenar", "almorzar"] },
+  { key: "playa", words: ["playa", "mar", "costa", "tunco", "zonte", "sunzal", "beach", "coast", "ocean", "sea"] },
+  { key: "surf", words: ["surf", "surfear", "olas", "surfing", "waves"] },
+  { key: "cultura", words: ["cultura", "museo", "historia", "colonial", "ruinas", "culture", "museum", "history", "ruins"] },
+  { key: "naturaleza", words: ["naturaleza", "volcan", "cerro", "lago", "cascada", "parque", "nature", "volcano", "lake", "waterfall", "park", "hiking"] },
+  { key: "hospedaje", words: ["hotel", "hostal", "hospedaje", "dormir", "hostel", "lodging", "stay", "sleep"] },
+  { key: "comida", words: ["comida", "comer", "restaurante", "pupusa", "pupusas", "cafe", "cenar", "almorzar", "food", "eat", "restaurant", "coffee", "dinner", "lunch"] },
   {
     key: "vida_nocturna",
-    words: ["bar", "bares", "discoteca", "discotecas", "antro", "antros", "club", "clubes", "fiesta", "noche", "vida nocturna"],
+    words: ["bar", "bares", "discoteca", "discotecas", "antro", "antros", "club", "clubes", "fiesta", "noche", "vida nocturna", "nightlife", "night club", "party"],
   },
-  { key: "bebidas", words: ["cerveza", "cervezas", "coctel", "cocteles", "tragos", "licores", "bebidas"] },
-  { key: "musica", words: ["musica", "musical", "dj", "baile", "bailar", "karaoke", "concierto"] },
-  { key: "tour", words: ["tour", "recorrido", "guia", "excursion", "visitar", "conocer"] },
-  { key: "romantico", words: ["romantico", "romantica", "pareja", "atardecer"] },
-  { key: "familia", words: ["familia", "ninos", "nino", "familiar"] },
-  { key: "compras", words: ["compras", "mercado", "artesanias", "souvenirs", "mall"] },
-  { key: "bienestar", words: ["spa", "masaje", "bienestar", "relajacion", "termales"] },
+  { key: "bebidas", words: ["cerveza", "cervezas", "coctel", "cocteles", "tragos", "licores", "bebidas", "beer", "cocktail", "drinks"] },
+  { key: "musica", words: ["musica", "musical", "dj", "baile", "bailar", "karaoke", "concierto", "music", "dance", "concert"] },
+  { key: "tour", words: ["tour", "recorrido", "guia", "excursion", "visitar", "conocer", "visit", "explore", "sightseeing"] },
+  { key: "romantico", words: ["romantico", "romantica", "pareja", "atardecer", "romantic", "couple", "sunset"] },
+  { key: "familia", words: ["familia", "ninos", "nino", "familiar", "family", "kids", "children"] },
+  { key: "compras", words: ["compras", "mercado", "artesanias", "souvenirs", "mall", "shopping", "market", "crafts"] },
+  { key: "bienestar", words: ["spa", "masaje", "bienestar", "relajacion", "termales", "massage", "wellness", "relax"] },
 ];
 
 const OCCASION_KEYWORDS = [
-  { key: "birthday", words: ["cumpleanos", "cumple", "celebrar cumple"] },
-  { key: "anniversary", words: ["aniversario"] },
-  { key: "family", words: ["familia", "familiar", "ninos", "nino"] },
-  { key: "friends", words: ["amigos", "amigas", "grupo", "compas"] },
+  { key: "birthday", words: ["cumpleanos", "cumple", "celebrar cumple", "birthday"] },
+  { key: "anniversary", words: ["aniversario", "anniversary"] },
+  { key: "family", words: ["familia", "familiar", "ninos", "nino", "family", "kids", "children"] },
+  { key: "friends", words: ["amigos", "amigas", "grupo", "compas", "friends", "group"] },
   {
     key: "nightlife",
-    words: ["bar", "bares", "discoteca", "discotecas", "antro", "antros", "fiesta", "vida nocturna", "salir de noche"],
+    words: ["bar", "bares", "discoteca", "discotecas", "antro", "antros", "fiesta", "vida nocturna", "salir de noche", "nightlife", "party"],
   },
-  { key: "romantic", words: ["romantico", "romantica", "pareja"] },
-  { key: "adventure", words: ["aventura", "extremo", "adrenalina"] },
-  { key: "rest", words: ["descanso", "relajar", "relax"] },
+  { key: "romantic", words: ["romantico", "romantica", "pareja", "romantic", "couple"] },
+  { key: "adventure", words: ["aventura", "extremo", "adrenalina", "adventure", "extreme"] },
+  { key: "rest", words: ["descanso", "relajar", "relax", "rest", "relaxing"] },
 ];
 
 const ZONE_KEYWORDS = [
@@ -68,6 +68,7 @@ export function normalizeTripInput(input) {
     travelers: Number(input.travelers || 1),
     conversationId: input.conversationId || null,
     phone: input.phone || null,
+    lang: input.lang || "es",
   };
 }
 
@@ -105,14 +106,14 @@ export function extractPreferredPlaces(message) {
 
 function wantsLodgingNearPreferredPlace(message) {
   const normalized = normalizeText(message);
-  const asksForLodging = /\b(hotel|hoteles|hospedar|hospedarme|hospedaje|alojamiento)\b/.test(normalized);
-  const asksNearby = /\b(cerca|cercano|cercana|ahi|alli|alrededor)\b/.test(normalized);
+  const asksForLodging = /\b(hotel|hoteles|hospedar|hospedarme|hospedaje|alojamiento|hostel|lodging|stay)\b/.test(normalized);
+  const asksNearby = /\b(cerca|cercano|cercana|ahi|alli|alrededor|near|nearby|around)\b/.test(normalized);
   return asksForLodging && asksNearby;
 }
 
 function extractMaxActivitiesTotal(message) {
   const normalized = normalizeText(message);
-  const match = normalized.match(/\b(?:unicamente|solo|solamente)\s+(?:quisiera|quiero|necesito)?\s*(?:esos|estos)?\s*(\d+)\s+(?:lugares|sitios|paradas|actividades)\b/);
+  const match = normalized.match(/\b(?:unicamente|solo|solamente|only|just)\s+(?:quisiera|quiero|necesito|want|need)?\s*(?:esos|estos|these|those)?\s*(\d+)\s+(?:lugares|sitios|paradas|actividades|places|stops|activities)\b/);
   if (!match) return null;
 
   const amount = Number(match[1]);
@@ -146,7 +147,7 @@ function isSpecificPlaceCandidate(rawValue, cleanValue) {
 
 function extractFreeformZone(message) {
   const text = String(message || "").trim();
-  const match = text.match(/\b(?:cerca de|cerca del|por|en)\s+([^,.!?;]+?)(?=\s+(?:y|quiero|tengo|somos|mi|la fecha|unicamente|únicamente)\b|,|\.|$)/i);
+  const match = text.match(/\b(?:cerca de|cerca del|por|en|near|around|in)\s+([^,.!?;]+?)(?=\s+(?:y|and|quiero|i want|tengo|i have|somos|we are|mi|my|la fecha|date|unicamente|únicamente|only)\b|,|\.|$)/i);
   if (!match) return null;
 
   const zone = match[1]
