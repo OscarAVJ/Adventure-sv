@@ -81,7 +81,10 @@ Activa la opcion para incluir datos de entrada en la respuesta si tu version de 
 
 ```txt
 Chat ID: {{$node["Normalize Telegram Payload"].json.chatId}}
-Text: {{$json.replyText}}
+Text:
+{{$json.replyText || ($json.missingFields?.length ? 'Para armarte una ruta real necesito estos datos:\n- ' + $json.missingFields.join('\n- ') + '\n\nEjemplo: Quiero 3 dias desde 2026-07-24, somos 4 personas, presupuesto $600, nos gusta cultura y naturaleza.' : 'No pude generar una respuesta. Intenta de nuevo con fecha, dias, viajeros y presupuesto.')}}
 ```
 
 Si el texto queda demasiado largo para Telegram, divide `replyText` en varios mensajes o limita la respuesta desde el backend.
+
+Cuando el backend responda con `status: "needs_input"`, ese mismo nodo enviara al usuario la lista de campos faltantes, por ejemplo presupuesto, dias, fecha de inicio o viajeros.
