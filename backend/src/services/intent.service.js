@@ -4,14 +4,14 @@ const INTEREST_KEYWORDS = [
   { key: "cultura", words: ["cultura", "museo", "historia", "colonial", "ruinas"] },
   { key: "naturaleza", words: ["naturaleza", "volcan", "cerro", "lago", "cascada", "parque"] },
   { key: "hospedaje", words: ["hotel", "hostal", "hospedaje", "dormir"] },
-  { key: "comida", words: ["comida", "restaurante", "pupusa", "pupusas", "cafe", "cenar", "almorzar"] },
+  { key: "comida", words: ["comida", "comer", "restaurante", "pupusa", "pupusas", "cafe", "cenar", "almorzar"] },
   {
     key: "vida_nocturna",
     words: ["bar", "bares", "discoteca", "discotecas", "antro", "antros", "club", "clubes", "fiesta", "noche", "vida nocturna"],
   },
   { key: "bebidas", words: ["cerveza", "cervezas", "coctel", "cocteles", "tragos", "licores", "bebidas"] },
   { key: "musica", words: ["musica", "musical", "dj", "baile", "bailar", "karaoke", "concierto"] },
-  { key: "tour", words: ["tour", "recorrido", "guia", "excursion"] },
+  { key: "tour", words: ["tour", "recorrido", "guia", "excursion", "visitar", "conocer"] },
   { key: "romantico", words: ["romantico", "romantica", "pareja", "atardecer"] },
   { key: "familia", words: ["familia", "ninos", "nino", "familiar"] },
   { key: "compras", words: ["compras", "mercado", "artesanias", "souvenirs", "mall"] },
@@ -73,14 +73,14 @@ export function normalizeTripInput(input) {
 
 export function extractInterests(message) {
   const normalized = normalizeText(message);
-  return INTEREST_KEYWORDS.filter(({ words }) => words.some((word) => normalized.includes(normalizeText(word)))).map(
+  return INTEREST_KEYWORDS.filter(({ words }) => words.some((word) => includesNormalizedWord(normalized, word))).map(
     ({ key }) => key
   );
 }
 
 export function extractOccasion(message) {
   const normalized = normalizeText(message);
-  return OCCASION_KEYWORDS.find(({ words }) => words.some((word) => normalized.includes(normalizeText(word))))?.key || null;
+  return OCCASION_KEYWORDS.find(({ words }) => words.some((word) => includesNormalizedWord(normalized, word)))?.key || null;
 }
 
 export function extractPreferredPlaces(message) {
@@ -121,7 +121,7 @@ function extractMaxActivitiesTotal(message) {
 
 function extractZone(message) {
   const normalized = normalizeText(message);
-  return ZONE_KEYWORDS.find((zone) => normalized.includes(normalizeText(zone))) || null;
+  return ZONE_KEYWORDS.find((zone) => normalized.includes(normalizeText(zone))) || extractFreeformZone(message);
 }
 
 function uniqueValues(values) {
@@ -140,8 +140,21 @@ function isSpecificPlaceCandidate(rawValue, cleanValue) {
   const raw = normalizeText(rawValue);
   const clean = normalizeText(cleanValue);
   if (clean.length < 3 || clean.length > 80) return false;
-  if (/\b(recorrido|bares?|discotecas?|lugares?|sitios?|tour|el salvador)\b/.test(raw)) return false;
+  if (/\b(recorrido|bares?|discotecas?|lugares?|sitios?|tour|visitar|comer|cercanos?|el salvador)\b/.test(raw)) return false;
   return true;
+}
+
+function extractFreeformZone(message) {
+  const text = String(message || "").trim();
+  const match = text.match(/\b(?:cerca de|cerca del|por|en)\s+([^,.!?;]+?)(?=\s+(?:y|quiero|tengo|somos|mi|la fecha|unicamente|únicamente)\b|,|\.|$)/i);
+  if (!match) return null;
+
+  const zone = match[1]
+    .replace(/\b(?:lugares|sitios|restaurantes|comida|visitar)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return zone.length >= 3 && zone.length <= 80 ? zone : null;
 }
 
 export function normalizeText(value) {
@@ -150,4 +163,11 @@ export function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function includesNormalizedWord(normalizedText, word) {
+  const normalizedWord = normalizeText(word);
+  if (!normalizedWord) return false;
+  const escapedWord = normalizedWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escapedWord}($|[^a-z0-9])`).test(normalizedText);
 }

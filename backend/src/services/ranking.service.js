@@ -26,11 +26,22 @@ export function scorePlace({ place, userContext, promotedPlace, season, occasion
 
   const ratingScore = (place.rating || 0) * 10;
   const logisticsScore = getLogisticsScore(place, userContext);
+  const distanceScore = getDistanceScore(place, userContext);
   const promotedBoost = getPromotedBoost(place, promotedPlace, userContext);
   const seasonalBoost = getSeasonalBoost(place, season);
   const occasionBoost = getOccasionBoost(place, occasionRule);
 
-  return relevanceScore + ratingScore + preferredPlaceBoost + requestedLodgingBoost + logisticsScore + promotedBoost + seasonalBoost + occasionBoost;
+  return (
+    relevanceScore +
+    ratingScore +
+    preferredPlaceBoost +
+    requestedLodgingBoost +
+    logisticsScore +
+    distanceScore +
+    promotedBoost +
+    seasonalBoost +
+    occasionBoost
+  );
 }
 
 function getRelevanceScore(place, userContext) {
@@ -44,6 +55,16 @@ function getRelevanceScore(place, userContext) {
 function getLogisticsScore(place, userContext) {
   if (!userContext.preferredZone) return 0;
   return normalizeText(place.zone) === normalizeText(userContext.preferredZone) ? 14 : 0;
+}
+
+function getDistanceScore(place, userContext) {
+  if (!userContext.preferredZone || !Number.isFinite(Number(place.distanceMeters))) return 0;
+  const distanceKm = Number(place.distanceMeters) / 1000;
+  if (distanceKm <= 2) return 35;
+  if (distanceKm <= 5) return 25;
+  if (distanceKm <= 10) return 14;
+  if (distanceKm <= 15) return 4;
+  return -30;
 }
 
 function getPreferredPlaceBoost(place, userContext) {

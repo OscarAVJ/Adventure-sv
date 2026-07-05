@@ -17,11 +17,12 @@ const DAY_TIMES = ["10:00", "13:00", "17:00"];
 
 export async function generateItinerary(input) {
   const userContext = await enrichTripContextWithAi(normalizeTripInput(input));
-  const [season, occasionRule, candidatePlaces] = await Promise.all([
+  const [activeSeason, occasionRule, candidatePlaces] = await Promise.all([
     findActiveSeason(userContext.startDate),
     findOccasionRule(userContext.occasion),
     searchCandidatePlaces(userContext),
   ]);
+  const season = getRelevantSeason(activeSeason, userContext);
 
   const promotedPlaces = await findPromotedPlaces(candidatePlaces);
   const rankedPlaces = rankPlaces({ places: candidatePlaces, userContext, promotedPlaces, season, occasionRule });
@@ -298,6 +299,14 @@ function buildAdjustments({ season, occasionRule, promotedPlaces, budgetAdjustme
     promotedPlaces.length > 0 ? "Se priorizaron negocios comerciales solo cuando coincidian con intereses, presupuesto y zona." : null,
     budgetAdjustment,
   ].filter(Boolean);
+}
+
+function getRelevantSeason(season, userContext) {
+  if (!season) return null;
+  const preferredCategories = season.preferredCategories || [];
+  const matchesInterest = preferredCategories.some((category) => userContext.interests.includes(category));
+  const matchesMessage = preferredCategories.some((category) => normalizeComparableText(userContext.message).includes(normalizeComparableText(category)));
+  return matchesInterest || matchesMessage ? season : null;
 }
 
 async function saveItinerary({ userContext, itineraryPayload }) {

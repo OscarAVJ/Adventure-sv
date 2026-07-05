@@ -9,6 +9,11 @@ const BASE_COSTS = {
   romantico: 45,
   familia: 20,
   aventura: 35,
+  vida_nocturna: 25,
+  bebidas: 18,
+  musica: 20,
+  compras: 20,
+  bienestar: 35,
 };
 
 export function estimateActivityCost(place, travelers) {
@@ -53,12 +58,15 @@ function addSpendingOptions(days, userContext) {
   const message = String(userContext.message || "").toLowerCase();
   const includesAirportTransfer = message.includes("aeropuerto");
   const wantsLodging = userContext.interests?.includes("hospedaje") || /\b(hotel|hospedaje|hospedar|alojamiento)\b/.test(message);
+  const wantsBeach = userContext.interests?.includes("playa") || /\b(playa|mar|costa|surf)\b/.test(message);
 
   return days.map((day, index) => {
     const spendingOptions = [
       buildSpendingOption("Comida y bebidas", 15 * travelers, "Desayuno sencillo, almuerzo local o snacks durante la ruta."),
       buildSpendingOption("Transporte local", 12 * travelers, "Movilidad corta entre playas, terminales o puntos cercanos."),
-      buildSpendingOption("Extras de playa", 8 * travelers, "Parqueo, duchas, silla, casillero o consumo minimo cuando aplique."),
+      wantsBeach
+        ? buildSpendingOption("Extras de playa", 8 * travelers, "Parqueo, duchas, silla, casillero o consumo minimo cuando aplique.")
+        : buildSpendingOption("Entradas o consumos", 8 * travelers, "Consumo minimo, parqueo o entrada sencilla cuando aplique."),
       includesAirportTransfer && index === 0
         ? buildSpendingOption("Traslado desde aeropuerto", 25 * travelers, "Estimado para iniciar la ruta desde el aeropuerto.")
         : null,

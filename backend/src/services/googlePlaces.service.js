@@ -7,18 +7,35 @@ export async function searchCandidatePlaces(userContext) {
   }
 
   const queries = buildPlacesQueries(userContext);
+  const locationBias = await resolveLocationBias(userContext.preferredZone);
   const places = [];
 
   for (const query of queries) {
-    const results = await fetchGooglePlaces(query, userContext);
+    const results = await fetchGooglePlaces(query, userContext, locationBias);
     places.push(...results);
   }
 
   const uniquePlaces = dedupePlaces(places);
-  return uniquePlaces;
+  return filterAndSortByDistance(uniquePlaces, locationBias);
 }
 
-async function fetchGooglePlaces(query, userContext) {
+async function fetchGooglePlaces(query, userContext, locationBias = null) {
+  const body = {
+    textQuery: query,
+    languageCode: "es",
+    regionCode: "SV",
+    maxResultCount: 10,
+  };
+
+  if (locationBias) {
+    body.locationBias = {
+      circle: {
+        center: locationBias.center,
+        radius: locationBias.radiusMeters,
+      },
+    };
+  }
+
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
     headers: {
@@ -36,12 +53,7 @@ async function fetchGooglePlaces(query, userContext) {
         "places.currentOpeningHours.weekdayDescriptions",
       ].join(","),
     },
-    body: JSON.stringify({
-      textQuery: query,
-      languageCode: "es",
-      regionCode: "SV",
-      maxResultCount: 10,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -53,7 +65,7 @@ async function fetchGooglePlaces(query, userContext) {
   }
 
   const data = await response.json();
-  return (data.places || []).map((place) => mapGooglePlace(place, userContext));
+  return (data.places || []).map((place) => mapGooglePlace(place, userContext, locationBias));
 }
 
 function buildPlacesQueries(userContext) {
@@ -95,21 +107,63 @@ function dedupePlaces(places) {
     .slice(0, 30);
 }
 
-function mapGooglePlace(place, userContext) {
+async function resolveLocationBias(preferredZone) {
+  const zoneQuery = cleanZoneQuery(preferredZone);
+  if (!zoneQuery) return null;
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": env.googleMapsApiKey,
+      "X-Goog-FieldMask": ["places.displayName", "places.formattedAddress", "places.location"].join(","),
+    },
+    body: JSON.stringify({
+      textQuery: `${zoneQuery} El Salvador`,
+      languageCode: "es",
+      regionCode: "SV",
+      maxResultCount: 1,
+    }),
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const place = data.places?.[0];
+  const lat = place?.location?.latitude;
+  const lng = place?.location?.longitude;
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+
+  return {
+    label: place.displayName?.text || zoneQuery,
+    address: place.formattedAddress || zoneQuery,
+    center: {
+      latitude: lat,
+      longitude: lng,
+    },
+    radiusMeters: 12000,
+  };
+}
+
+function mapGooglePlace(place, userContext, locationBias = null) {
   const inferredType = userContext.interests[0] || "tour";
+  const coordinates = {
+    lat: place.location?.latitude,
+    lng: place.location?.longitude,
+  };
+  const distanceMeters = locationBias ? calculateDistanceMeters(locationBias.center, coordinates) : null;
+
   return {
     name: place.displayName?.text || "Lugar turistico",
     type: inferredType,
     address: place.formattedAddress || null,
     googleMapsUrl: place.googleMapsUri || buildGoogleMapsUrl(place),
     categories: inferCategoriesFromGooglePlace(place, userContext),
-    zone: userContext.preferredZone || place.formattedAddress || "El Salvador",
+    zone: place.formattedAddress || userContext.preferredZone || "El Salvador",
     googlePlaceId: place.id,
     rating: place.rating || 0,
-    coordinates: {
-      lat: place.location?.latitude,
-      lng: place.location?.longitude,
-    },
+    coordinates,
+    distanceMeters,
     openNow: place.currentOpeningHours?.openNow,
     openingHours: place.currentOpeningHours?.weekdayDescriptions || [],
   };
@@ -129,6 +183,48 @@ function hasValidCoordinates(coordinates) {
 
 function normalizeQuery(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function cleanZoneQuery(value) {
+  return String(value || "")
+    .replace(/\b(?:cerca de|cerca del|por|en)\b/gi, "")
+    .replace(/\bmarcella\b/gi, "Marsella")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function filterAndSortByDistance(places, locationBias) {
+  if (!locationBias) return places;
+
+  const nearbyPlaces = places
+    .filter((place) => Number.isFinite(Number(place.distanceMeters)))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+  const withinRadius = nearbyPlaces.filter((place) => place.distanceMeters <= locationBias.radiusMeters);
+  if (withinRadius.length > 0) return withinRadius.slice(0, 30);
+
+  return nearbyPlaces.filter((place) => place.distanceMeters <= 20000).slice(0, 15);
+}
+
+function calculateDistanceMeters(center, coordinates) {
+  const lat1 = Number(center?.latitude);
+  const lng1 = Number(center?.longitude);
+  const lat2 = Number(coordinates?.lat);
+  const lng2 = Number(coordinates?.lng);
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
+
+  const earthRadiusMeters = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+
+  return Math.round(earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
 }
 
 function expandInterestsForSearch(interests) {

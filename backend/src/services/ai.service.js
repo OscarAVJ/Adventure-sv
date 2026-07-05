@@ -177,6 +177,7 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
     zone: place.zone,
     rating: place.rating,
     score: Math.round(place.score || 0),
+    distanceKm: Number.isFinite(Number(place.distanceMeters)) ? Math.round((Number(place.distanceMeters) / 1000) * 10) / 10 : null,
     preferredByUser: isPreferredPlace(place, userContext),
     featured: Boolean(place.featured),
     openNow: Boolean(place.openNow),
@@ -202,6 +203,7 @@ async function requestItineraryPlan({ userContext, season, occasionRule, rankedP
           : null,
         userContext.maxActivitiesTotal ? "Respeta estrictamente el limite de actividades indicado por el usuario." : null,
         "No favorezcas una zona que el usuario no pidio si hay candidatos relevantes para su intencion principal.",
+        userContext.preferredZone ? "El usuario pidio una zona especifica: prioriza los candidatePlaces con menor distanceKm." : null,
         "Si hay ocasion especial, agrega al menos una actividad compatible cuando exista candidato relevante.",
         "Si hay temporada, favorece opciones compatibles sin desplazar la intencion principal.",
         "Mantén rutas por dia geograficamente coherentes.",
@@ -358,8 +360,8 @@ async function requestGeminiJson({ system, user }) {
 function mergeAiContext(userContext, aiContext) {
   const aiInterests = sanitizeInterests(aiContext.interests);
   const interests = [...new Set([...userContext.interests, ...aiInterests])];
-  const preferredZone = userContext.preferredZone || null;
-  const occasion = ALLOWED_OCCASIONS.includes(aiContext.occasion) ? aiContext.occasion : userContext.occasion;
+  const preferredZone = userContext.preferredZone || sanitizeText(aiContext.preferredZone) || null;
+  const occasion = userContext.occasion || (ALLOWED_OCCASIONS.includes(aiContext.occasion) ? aiContext.occasion : null);
   const searchQueries = sanitizeSearchQueries(aiContext.searchQueries, { ...userContext, interests, preferredZone });
   const dayThemes = sanitizeDayThemes(aiContext.dayThemes, userContext.days);
 
