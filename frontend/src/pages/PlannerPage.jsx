@@ -21,10 +21,11 @@ export function PlannerPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
+            <img src="/logo.png" alt="" className="hidden h-10 w-10 rounded-full object-cover sm:block" aria-hidden="true" />
             <div>
               <p className="text-sm font-medium text-brand-700">Adventure-sv</p>
               <h1 className="text-xl font-semibold text-slate-950">
-                Planificador turistico inteligente
+                Planificador turístico inteligente
               </h1>
             </div>
           </div>
@@ -58,11 +59,11 @@ export function PlannerPage() {
                 Completa tus preferencias
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                Tu itinerario aparecera aqui
+                Tu itinerario aparecerá aquí
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-sm text-slate-500">
-                El resultado mostrara presupuesto, actividades por dia, mapa,
-                negocios recomendados, temporada y ocasion especial.
+                El resultado mostrará presupuesto, actividades por día, mapa,
+                negocios recomendados, temporada y ocasión especial.
               </p>
             </div>
           )}

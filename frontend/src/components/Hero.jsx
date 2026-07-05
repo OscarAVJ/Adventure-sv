@@ -26,23 +26,22 @@ export function Hero() {
         </h1>
 
         <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/80 sm:text-lg">
-          Crea planes de viaje personalizados en segundos, con lugares
-          reales y presupuesto bajo control.
+          Crea planes de viaje personalizados en segundos, con lugares reales
+          y presupuesto bajo control.
         </p>
 
-        {/* barra de busqueda / CTA principal */}
         <div className="mx-auto mt-10 flex max-w-3xl flex-col gap-2 rounded-full bg-white/10 p-2 text-left backdrop-blur sm:flex-row sm:items-center sm:gap-0 sm:rounded-full sm:p-2">
           <div className="flex flex-1 items-center gap-2 rounded-full px-4 py-3 sm:border-r sm:border-white/15">
             <MapPin className="h-4 w-4 shrink-0 text-[#F2A93B]" />
-            <span className="text-sm text-white/90">A donde quieres ir?</span>
+            <span className="text-sm text-white/90">¿A dónde quieres ir?</span>
           </div>
           <div className="flex flex-1 items-center gap-2 rounded-full px-4 py-3 sm:border-r sm:border-white/15">
             <CalendarDays className="h-4 w-4 shrink-0 text-[#1C7C74]" />
-            <span className="text-sm text-white/90">Cuando quieres viajar?</span>
+            <span className="text-sm text-white/90">¿Cuándo quieres viajar?</span>
           </div>
           <div className="flex flex-1 items-center gap-2 rounded-full px-4 py-3">
             <Users className="h-4 w-4 shrink-0 text-[#D14D72]" />
-            <span className="text-sm text-white/90">Cuantas personas?</span>
+            <span className="text-sm text-white/90">¿Cuántas personas?</span>
           </div>
           <Link
             to="/planner"

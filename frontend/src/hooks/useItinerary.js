@@ -37,7 +37,7 @@ export function useItinerary() {
       }
     }
 
-    throw new Error("El itinerario esta tardando mas de lo esperado. Intenta consultar de nuevo en unos segundos.");
+    throw new Error("El itinerario está tardando más de lo esperado. Intenta consultar de nuevo en unos segundos.");
   }
 
   async function changeActivity(activityId, reason = "disliked") {

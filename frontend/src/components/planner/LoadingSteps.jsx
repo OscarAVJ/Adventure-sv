@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 const steps = [
   "Entendiendo tus intereses...",
   "Buscando lugares reales en Google Maps...",
-  "Revisando temporada y ocasion del viaje...",
+  "Revisando temporada y ocasión del viaje...",
   "Aplicando prioridades relevantes...",
   "Ajustando actividades a tu presupuesto...",
 ];

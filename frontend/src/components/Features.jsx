@@ -34,13 +34,13 @@ export function Features() {
     <section className="bg-white py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <p className="text-sm font-semibold text-brand-700">
-          Por que Adventure-sv
+          Por qué Adventure-sv
         </p>
         <h2
           className="mt-3 max-w-xl text-3xl font-bold text-slate-950"
           style={display}
         >
-          Cada recomendacion tiene una razon detras.
+          Cada recomendación tiene una razón detrás.
         </h2>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">

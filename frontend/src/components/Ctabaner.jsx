@@ -19,10 +19,10 @@ export function CtaBanner() {
             className="mx-auto max-w-xl text-3xl font-bold text-white sm:text-4xl"
             style={display}
           >
-            Listo para la aventura?
+            ¿Listo para la aventura?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-white/70 sm:text-base">
-            Unete a miles de viajeros que ya estan descubriendo la magia de
+            Únete a miles de viajeros que ya están descubriendo la magia de
             El Salvador con planes inteligentes y personalizados.
           </p>
 

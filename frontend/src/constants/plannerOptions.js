@@ -5,17 +5,17 @@ export const interestOptions = [
   { value: "cultura", label: "Cultura" },
   { value: "naturaleza", label: "Naturaleza" },
   { value: "aventura", label: "Aventura" },
-  { value: "romantico", label: "Romantico" },
+  { value: "romantico", label: "Romántico" },
   { value: "familia", label: "Familia" },
 ];
 
 export const occasionOptions = [
   { value: "", label: "Ninguna" },
-  { value: "birthday", label: "Cumpleanos" },
+  { value: "birthday", label: "Cumpleaños" },
   { value: "anniversary", label: "Aniversario" },
   { value: "family", label: "Viaje familiar" },
   { value: "friends", label: "Con amigos" },
-  { value: "romantic", label: "Romantico" },
+  { value: "romantic", label: "Romántico" },
 ];
 
 export const zoneOptions = [

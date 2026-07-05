@@ -76,7 +76,7 @@ export function TripForm({ onSubmit, isLoading }) {
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700">Dias</span>
+          <span className="text-sm font-medium text-slate-700">Días</span>
           <input
             type="number"
             min="1"

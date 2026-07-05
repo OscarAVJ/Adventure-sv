@@ -35,7 +35,7 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${isRerolling ? "animate-spin" : ""}`} />
-          {isRerolling ? "Buscando opcion..." : "Cambiar actividad"}
+          {isRerolling ? "Buscando opción..." : "Cambiar actividad"}
         </button>
         {rerollError && <p className="text-sm font-medium text-red-600">{rerollError}</p>}
       </div>
@@ -63,7 +63,7 @@ export function ActivityCard({ activity, isRerolling = false, rerollError = null
             className="inline-flex items-center gap-2 font-medium text-brand-700 hover:text-brand-800"
           >
             <MapPin className="h-4 w-4" />
-            Abrir ubicacion en Google Maps
+            Abrir ubicación en Google Maps
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}

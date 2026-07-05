@@ -61,7 +61,7 @@ export function Testimonials() {
             <button
               type="button"
               onClick={showNext}
-              aria-label="Ver mas testimonios"
+              aria-label="Ver más testimonios"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-950 hover:text-slate-950"
             >
               <ChevronRight className="h-4 w-4" />

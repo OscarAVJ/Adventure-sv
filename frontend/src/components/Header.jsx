@@ -1,4 +1,3 @@
-import { Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 import { display } from "../services/Data.js";
 
@@ -11,15 +10,10 @@ export function Header() {
           className="flex items-center gap-2"
           aria-label="Ir al planificador Adventure-sv"
         >
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F2A93B] text-slate-950"
-            aria-hidden="true"
-          >
-            <Sun className="h-4 w-4" strokeWidth={2.5} />
-          </span>
+          <img src="/logo.png" alt="" className="h-9 w-9 rounded-full object-cover" aria-hidden="true" />
           <span>
             <p className="text-sm font-bold text-brand-700" style={display}>
-              Adventure·sv
+              Adventure-sv
             </p>
             <p className="text-xs text-slate-500">Turismo inteligente</p>
           </span>
