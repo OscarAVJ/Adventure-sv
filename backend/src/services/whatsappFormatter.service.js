@@ -26,12 +26,16 @@ export function formatReplyText({ itinerary, occasionRule, season }) {
 
 function formatActivity(activity) {
   const status = formatOpenStatus(activity);
+  const cost = formatActivityCost(activity);
   const location = activity.googleMapsUrl ? `\n  Ubicacion: ${activity.googleMapsUrl}` : "";
   const address = activity.address ? `\n  Direccion: ${activity.address}` : "";
   const hours = formatOpeningHours(activity.openingHours);
+  const breakdown = formatSpendingBreakdown(activity.spendingBreakdown);
 
   return [
     `- ${activity.time} ${activity.name}: ${activity.notes}`,
+    cost ? `  Costo estimado: ${cost}` : null,
+    breakdown || null,
     status ? `  Estado: ${status}` : null,
     location || null,
     address || null,
@@ -39,6 +43,16 @@ function formatActivity(activity) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function formatActivityCost(activity) {
+  const value = activity.estimatedTotalCostUsd ?? activity.costUsd;
+  return Number.isFinite(Number(value)) ? `$${value}` : "";
+}
+
+function formatSpendingBreakdown(spendingBreakdown) {
+  if (!Array.isArray(spendingBreakdown) || spendingBreakdown.length === 0) return "";
+  return spendingBreakdown.map((item) => `  - ${item.category}: $${item.costUsd}`).join("\n");
 }
 
 function formatOpenStatus(activity) {

@@ -227,6 +227,7 @@ function buildActivity({ place, time, aiReason, aiNotes, userContext, season, oc
     costUsd: estimateActivityCost(place, userContext.travelers),
     googlePlaceId: place.googlePlaceId,
     coordinates: place.coordinates,
+    distanceMeters: place.distanceMeters,
     featured,
     seasonal,
     occasionMatch,
