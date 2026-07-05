@@ -1,0 +1,122 @@
+{
+  "name": "Adventure-sv Telegram Itinerary",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Inbound Message",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Adventure-sv Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $json.message?.text || '';\nconst chatId = $json.message?.chat?.id;\n\nreturn [\n  {\n    json: {\n      message,\n      chatId,\n      phone: `telegram:${chatId}`,\n      raw: $json\n    }\n  }\n];"
+      },
+      "id": "normalize-telegram-payload",
+      "name": "Normalize Telegram Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{($env.ADVENTURE_SV_API_URL || 'https://TU-BACKEND.onrender.com') + '/api/webhooks/n8n/telegram'}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ message: $json.message, chatId: $json.chatId, phone: $json.phone })}}",
+        "options": {}
+      },
+      "id": "call-adventure-sv-backend",
+      "name": "Call Adventure-sv Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Normalize Telegram Payload\"].json.chatId}}",
+        "text": "={{$json.replyText || 'No pude generar una respuesta. Intenta de nuevo con fecha, dias, viajeros y presupuesto.'}}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "send-telegram-response",
+      "name": "Send Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1080,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Adventure-sv Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Adventure-sv Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Adventure-sv Backend": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false,
+  "versionId": "adventure-sv-telegram-v1"
+}

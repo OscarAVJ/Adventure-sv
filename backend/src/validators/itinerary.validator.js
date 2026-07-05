@@ -3,8 +3,8 @@ import { AppError } from "../utils/AppError.js";
 export function validateItineraryRequest(body) {
   const details = [];
 
-  if (!["web", "whatsapp"].includes(body.channel)) {
-    details.push("channel debe ser web o whatsapp");
+  if (!["web", "whatsapp", "telegram"].includes(body.channel)) {
+    details.push("channel debe ser web, whatsapp o telegram");
   }
 
   if (body.budgetUsd === undefined || body.budgetUsd === null || body.budgetUsd === "") {

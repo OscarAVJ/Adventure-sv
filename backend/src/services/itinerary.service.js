@@ -304,16 +304,16 @@ async function saveItinerary({ userContext, itineraryPayload }) {
 }
 
 async function saveConversationTurn({ userContext, replyText, itineraryId }) {
-  if (mongoose.connection.readyState !== 1 || userContext.channel !== "whatsapp") return;
+  if (mongoose.connection.readyState !== 1 || !["whatsapp", "telegram"].includes(userContext.channel)) return;
 
   const query = userContext.conversationId
     ? buildConversationQuery(userContext)
-    : { phone: userContext.phone, channel: "whatsapp", status: "active" };
+    : { phone: userContext.phone, channel: userContext.channel, status: "active" };
 
   await Conversation.findOneAndUpdate(
     query,
     {
-      $setOnInsert: { channel: "whatsapp", phone: userContext.phone, status: "active" },
+      $setOnInsert: { channel: userContext.channel, phone: userContext.phone, status: "active" },
       $set: { lastItineraryId: itineraryId },
       $push: {
         messages: [
@@ -329,5 +329,5 @@ async function saveConversationTurn({ userContext, replyText, itineraryId }) {
 function buildConversationQuery(userContext) {
   return mongoose.Types.ObjectId.isValid(userContext.conversationId)
     ? { _id: userContext.conversationId }
-    : { phone: userContext.phone, channel: "whatsapp", status: "active" };
+    : { phone: userContext.phone, channel: userContext.channel, status: "active" };
 }

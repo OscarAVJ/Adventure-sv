@@ -4,7 +4,7 @@ const itinerarySchema = new mongoose.Schema(
   {
     channel: {
       type: String,
-      enum: ["web", "whatsapp"],
+      enum: ["web", "whatsapp", "telegram"],
       required: true,
     },
     phone: String,

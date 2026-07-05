@@ -4,7 +4,7 @@ const conversationSchema = new mongoose.Schema(
   {
     channel: {
       type: String,
-      enum: ["whatsapp", "web"],
+      enum: ["whatsapp", "telegram", "web"],
       required: true,
     },
     phone: {

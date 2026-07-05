@@ -10,8 +10,16 @@ const REQUIRED_FIELDS = [
 ];
 
 export async function handleN8nWhatsappMessage(body) {
-  const message = extractWhatsappMessage(body);
-  const phone = extractWhatsappPhone(body);
+  return handleN8nChatMessage(body, { channel: "whatsapp" });
+}
+
+export async function handleN8nTelegramMessage(body) {
+  return handleN8nChatMessage(body, { channel: "telegram" });
+}
+
+export async function handleN8nChatMessage(body, { channel = body.channel || "whatsapp" } = {}) {
+  const message = extractChatMessage(body);
+  const phone = extractChatIdentifier(body, channel);
   const currentDate = new Date().toISOString().slice(0, 10);
 
   if (!message) {
@@ -23,7 +31,7 @@ export async function handleN8nWhatsappMessage(body) {
   }
 
   const aiFields = await parseWhatsappTripRequestWithAi({ message, currentDate });
-  const requestPayload = buildItineraryPayload({ body, aiFields, message, phone });
+  const requestPayload = buildItineraryPayload({ body, aiFields, message, phone, channel });
   const missingFields = getMissingFields(requestPayload);
 
   if (missingFields.length > 0) {
@@ -37,11 +45,11 @@ export async function handleN8nWhatsappMessage(body) {
   return generateItinerary(requestPayload);
 }
 
-function buildItineraryPayload({ body, aiFields, message, phone }) {
+function buildItineraryPayload({ body, aiFields, message, phone, channel }) {
   const fallbackInterests = extractInterests(message);
 
   return {
-    channel: "whatsapp",
+    channel,
     message,
     interests: pickArray(body.interests, aiFields.interests, fallbackInterests),
     budgetUsd: pickValue(body.budgetUsd, aiFields.budgetUsd),
@@ -55,27 +63,37 @@ function buildItineraryPayload({ body, aiFields, message, phone }) {
   };
 }
 
-function extractWhatsappMessage(body) {
-  return (
-    body.message ||
+function extractChatMessage(body) {
+  const message =
+    body.message?.text ||
+    body.body?.message?.text ||
     body.text ||
-    body.body?.message ||
+    body.chatInput ||
+    (typeof body.message === "string" ? body.message : null) ||
+    (typeof body.body?.message === "string" ? body.body.message : null) ||
     body.body?.text ||
+    body.body?.chatInput ||
     body.messages?.[0]?.text?.body ||
     body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body ||
-    ""
-  ).trim();
+    "";
+
+  return message.trim();
 }
 
-function extractWhatsappPhone(body) {
-  return (
+function extractChatIdentifier(body, channel) {
+  const identifier =
     body.phone ||
+    body.chatId ||
+    body.message?.chat?.id ||
     body.from ||
     body.body?.phone ||
+    body.body?.chatId ||
     body.messages?.[0]?.from ||
     body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from ||
-    null
-  );
+    null;
+
+  if (!identifier) return null;
+  return String(identifier).startsWith(`${channel}:`) ? String(identifier) : `${channel}:${identifier}`;
 }
 
 function getMissingFields(payload) {
