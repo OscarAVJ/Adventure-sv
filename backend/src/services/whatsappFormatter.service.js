@@ -6,7 +6,7 @@ export function formatReplyText({ itinerary, occasionRule, season }) {
   const days = itinerary.days
     .map((day) => {
       const activities = day.activities
-        .map((activity) => `- ${activity.time} ${activity.name}: ${activity.notes}`)
+        .map(formatActivity)
         .join("\n");
       const spending = (day.spendingOptions || [])
         .map((option) => `  * ${option.category}: $${option.costUsd}`)
@@ -22,4 +22,32 @@ export function formatReplyText({ itinerary, occasionRule, season }) {
     .join("\n\n");
 
   return [header, budget, days].filter(Boolean).join("\n\n");
+}
+
+function formatActivity(activity) {
+  const status = formatOpenStatus(activity);
+  const location = activity.googleMapsUrl ? `\n  Ubicacion: ${activity.googleMapsUrl}` : "";
+  const address = activity.address ? `\n  Direccion: ${activity.address}` : "";
+  const hours = formatOpeningHours(activity.openingHours);
+
+  return [
+    `- ${activity.time} ${activity.name}: ${activity.notes}`,
+    status ? `  Estado: ${status}` : null,
+    location || null,
+    address || null,
+    hours ? `  Horarios: ${hours}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function formatOpenStatus(activity) {
+  if (activity.openNow === true) return "Abierto ahora";
+  if (activity.openNow === false) return "Cerrado ahora";
+  return "Horario no disponible";
+}
+
+function formatOpeningHours(openingHours) {
+  if (!Array.isArray(openingHours) || openingHours.length === 0) return "";
+  return openingHours.slice(0, 7).join(" | ");
 }

@@ -28,10 +28,12 @@ async function fetchGooglePlaces(query, userContext) {
         "places.id",
         "places.displayName",
         "places.formattedAddress",
+        "places.googleMapsUri",
         "places.location",
         "places.rating",
         "places.types",
         "places.currentOpeningHours.openNow",
+        "places.currentOpeningHours.weekdayDescriptions",
       ].join(","),
     },
     body: JSON.stringify({
@@ -98,6 +100,8 @@ function mapGooglePlace(place, userContext) {
   return {
     name: place.displayName?.text || "Lugar turistico",
     type: inferredType,
+    address: place.formattedAddress || null,
+    googleMapsUrl: place.googleMapsUri || buildGoogleMapsUrl(place),
     categories: inferCategoriesFromGooglePlace(place, userContext),
     zone: userContext.preferredZone || place.formattedAddress || "El Salvador",
     googlePlaceId: place.id,
@@ -107,7 +111,16 @@ function mapGooglePlace(place, userContext) {
       lng: place.location?.longitude,
     },
     openNow: place.currentOpeningHours?.openNow,
+    openingHours: place.currentOpeningHours?.weekdayDescriptions || [],
   };
+}
+
+function buildGoogleMapsUrl(place) {
+  if (place.id) return `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(place.id)}`;
+  const lat = place.location?.latitude;
+  const lng = place.location?.longitude;
+  if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  return null;
 }
 
 function hasValidCoordinates(coordinates) {

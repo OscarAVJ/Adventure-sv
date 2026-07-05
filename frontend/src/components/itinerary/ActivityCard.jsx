@@ -1,8 +1,11 @@
+import { ExternalLink, MapPin } from "lucide-react";
 import { BadgeList } from "./BadgeList";
 import { formatCurrency } from "../../utils/formatCurrency";
 
 export function ActivityCard({ activity }) {
   const displayCost = activity.estimatedTotalCostUsd ?? activity.costUsd;
+  const openStatus = getOpenStatus(activity.openNow);
+  const todayHours = getTodayHours(activity.openingHours);
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -38,6 +41,32 @@ export function ActivityCard({ activity }) {
         </p>
       )}
 
+      <div className="mt-3 space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+        {activity.googleMapsUrl && (
+          <a
+            href={activity.googleMapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 font-medium text-brand-700 hover:text-brand-800"
+          >
+            <MapPin className="h-4 w-4" />
+            Abrir ubicacion en Google Maps
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+        {activity.address && <p>{activity.address}</p>}
+        <p>
+          <span className="font-medium text-slate-950">Estado:</span>{" "}
+          {openStatus}
+        </p>
+        {todayHours && (
+          <p>
+            <span className="font-medium text-slate-950">Horario:</span>{" "}
+            {todayHours}
+          </p>
+        )}
+      </div>
+
       {activity.spendingBreakdown?.length > 0 && (
         <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -60,5 +89,16 @@ export function ActivityCard({ activity }) {
       )}
     </article>
   );
+}
+
+function getOpenStatus(openNow) {
+  if (openNow === true) return "Abierto ahora";
+  if (openNow === false) return "Cerrado ahora";
+  return "Horario no disponible";
+}
+
+function getTodayHours(openingHours) {
+  if (!Array.isArray(openingHours) || openingHours.length === 0) return "";
+  return openingHours[0];
 }
 
